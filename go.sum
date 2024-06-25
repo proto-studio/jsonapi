@@ -1,0 +1,6 @@
+golang.org/x/net v0.15.0 h1:ugBLEUaxABaB5AJqW9enI0ACdci2RUd4eP51NTBvuJ8=
+golang.org/x/net v0.15.0/go.mod h1:idbUs1IY1+zTqbi8yxTbhexhEEk5ur9LInksu6HrEpk=
+golang.org/x/text v0.13.0 h1:ablQoSUd0tRdKxZewP80B+BaqeKJuVhuRxj/dkrun3k=
+golang.org/x/text v0.13.0/go.mod h1:TvPlkZtksWOMsz7fbANvkp4WM8x/WCo/om8BMLbz+aE=
+proto.zip/studio/validate v0.2.1 h1:ZHkrWqi/is52oCQjYhmU6PaHI0gGwKHQA7n4IREO3hE=
+proto.zip/studio/validate v0.2.1/go.mod h1:WsKH6LHuakH8s2Tbpf5o6fgFA1BvqirVCFrNS2CsPPI=
