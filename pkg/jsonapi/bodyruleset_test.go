@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"proto.zip/studio/jsonapi/pkg/jsonapi"
-	"proto.zip/studio/validate"
+	"proto.zip/studio/validate/pkg/rules"
 )
 
 // Requirements:
@@ -17,8 +17,8 @@ func TestSingleDatum(t *testing.T) {
 		Name string
 	}
 
-	datumRuleSet := validate.Object[testDatum]().
-		WithKey("Name", validate.String().WithMinLen(6).Any())
+	datumRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().WithMinLen(6).Any())
 
 	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", datumRuleSet)
 
@@ -69,7 +69,7 @@ func TestSingleDatum(t *testing.T) {
 // - WithUnknownRelationships allows all relationships (nil, slice, and ID linkage) to pass.
 func TestWithUnknownRelationshipsBody(t *testing.T) {
 
-	attributesRuleSet := validate.MapAny().WithUnknown()
+	attributesRuleSet := rules.StringMap[any]().WithUnknown()
 	ruleSet := jsonapi.NewSingleRuleSet[map[string]any]("tests", attributesRuleSet)
 
 	ctx := context.Background()

@@ -4,7 +4,6 @@ import (
 	"context"
 	"reflect"
 
-	"proto.zip/studio/validate"
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
 )
@@ -48,7 +47,7 @@ func (ruleSet *DatumRuleSet[T]) WithRelationship(relName string, relRuleSet rule
 
 func (ruleSet *DatumRuleSet[T]) WithUnknownRelationships() *DatumRuleSet[T] {
 	newRuleSet := ruleSet.clone()
-	newRuleSet.relationshipsRuleSet = newRuleSet.relationshipsRuleSet.WithDynamicKey(validate.String(), RelationshipRuleSet)
+	newRuleSet.relationshipsRuleSet = newRuleSet.relationshipsRuleSet.WithDynamicKey(rules.String(), RelationshipRuleSet)
 	return newRuleSet
 }
 
@@ -67,7 +66,7 @@ func (ruleSet *DatumRuleSet[T]) Required() bool {
 }
 
 func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationErrorCollection {
-	datumValidator := validate.Object[Datum[T]]().WithJson()
+	datumValidator := rules.Struct[Datum[T]]().WithJson()
 	datumValidator = datumValidator.WithKey("id", ruleSet.idRuleSet.Any())
 	datumValidator = datumValidator.WithKey("type", ruleSet.typeRuleSet.Any())
 	datumValidator = datumValidator.WithKey("attributes", ruleSet.attributesRuleSet.Any())

@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	"proto.zip/studio/validate"
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
 )
@@ -83,12 +82,12 @@ type QueryData struct {
 	Filters map[string]any
 }
 
-var queryValueRuleSet = validate.Array[string]().WithItemRuleSet(validate.String()).WithMaxLen(1)
+var queryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithMaxLen(1)
 
-var fieldKeyRule = validate.String().WithRegexp(regexp.MustCompile(`^fields\[[^\]]+\]$`), "")
-var filterKeyRule = validate.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
+var fieldKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^fields\[[^\]]+\]$`), "")
+var filterKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
 
-var filterRuleSet = validate.Interface[FieldList]().WithCast(func(ctx context.Context, value any) (FieldList, errors.ValidationErrorCollection) {
+var filterRuleSet = rules.Interface[FieldList]().WithCast(func(ctx context.Context, value any) (FieldList, errors.ValidationErrorCollection) {
 	var strs []string
 	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
 
@@ -101,7 +100,7 @@ var filterRuleSet = validate.Interface[FieldList]().WithCast(func(ctx context.Co
 	return NewFieldList(splitStrs...), nil
 })
 
-var sortRuleSet = validate.Interface[[]SortParam]().WithCast(func(ctx context.Context, value any) ([]SortParam, errors.ValidationErrorCollection) {
+var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Context, value any) ([]SortParam, errors.ValidationErrorCollection) {
 	var strs []string
 	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
 
@@ -133,7 +132,7 @@ var sortRuleSet = validate.Interface[[]SortParam]().WithCast(func(ctx context.Co
 	return out, nil
 })
 
-var QueryStringBaseRuleSet rules.RuleSet[QueryData] = validate.Object[QueryData]().
+var QueryStringBaseRuleSet rules.RuleSet[QueryData] = rules.Struct[QueryData]().
 	WithDynamicKey(fieldKeyRule, filterRuleSet.Any()).
 	WithDynamicKey(filterKeyRule, filterRuleSet.Any()).
 	WithDynamicBucket(fieldKeyRule, "Fields").

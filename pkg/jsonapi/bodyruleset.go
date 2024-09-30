@@ -3,7 +3,6 @@ package jsonapi
 import (
 	"context"
 
-	"proto.zip/studio/validate"
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
 )
@@ -57,7 +56,7 @@ func (ruleSet *SingleRuleSet[T]) Required() bool {
 }
 
 func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationErrorCollection {
-	BodyValidator := validate.Object[SingleDatumEnvelope[T]]().WithJson()
+	BodyValidator := rules.Struct[SingleDatumEnvelope[T]]().WithJson()
 	BodyValidator = BodyValidator.WithKey("data", ruleSet.datumRuleSet.Any())
 	BodyValidator = BodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
 
