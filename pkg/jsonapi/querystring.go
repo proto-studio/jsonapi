@@ -21,29 +21,29 @@ type FieldList interface {
 	doNotExtend()
 }
 
-type allFieldsList struct{}
+type AllFieldsList struct{}
 
-func (*allFieldsList) Fields() []string {
+func (*AllFieldsList) Fields() []string {
 	return nil
 }
 
-func (*allFieldsList) Contains(field string) bool {
+func (*AllFieldsList) Contains(field string) bool {
 	return true
 }
 
-func (*allFieldsList) doNotExtend() {}
+func (*AllFieldsList) doNotExtend() {}
 
-type noneFieldsList struct{}
+type NoneFieldsList struct{}
 
-func (*noneFieldsList) Fields() []string {
+func (*NoneFieldsList) Fields() []string {
 	return []string{}
 }
 
-func (*noneFieldsList) Contains(field string) bool {
+func (*NoneFieldsList) Contains(field string) bool {
 	return false
 }
 
-func (*noneFieldsList) doNotExtend() {}
+func (*NoneFieldsList) doNotExtend() {}
 
 type fieldListMap map[string]bool
 
@@ -62,6 +62,16 @@ func (fl fieldListMap) Contains(field string) bool {
 
 func (fieldListMap) doNotExtend() {}
 
+func NewFieldList(fields ...string) FieldList {
+	out := make(fieldListMap, len(fields))
+
+	for _, field := range fields {
+		out[field] = true
+	}
+
+	return out
+}
+
 type Include struct {
 	Leaf string
 	Path []string
@@ -79,25 +89,21 @@ var fieldKeyRule = validate.String().WithRegexp(regexp.MustCompile(`^fields\[[^\
 var filterKeyRule = validate.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
 
 var filterRuleSet = validate.Interface[FieldList]().WithCast(func(ctx context.Context, value any) (FieldList, errors.ValidationErrorCollection) {
-	strs, verrs := queryValueRuleSet.Run(ctx, value)
+	var strs []string
+	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
 
 	if verrs != nil {
 		return nil, verrs
 	}
 
-	itms := strings.Split(strs[0], ",")
+	splitStrs := strings.Split(strs[0], ",")
 
-	out := make(fieldListMap, len(itms))
-
-	for _, itm := range itms {
-		out[itm] = true
-	}
-
-	return out, nil
+	return NewFieldList(splitStrs...), nil
 })
 
 var sortRuleSet = validate.Interface[[]SortParam]().WithCast(func(ctx context.Context, value any) ([]SortParam, errors.ValidationErrorCollection) {
-	strs, verrs := queryValueRuleSet.Run(ctx, value)
+	var strs []string
+	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
 
 	if verrs != nil {
 		return nil, verrs
@@ -129,6 +135,7 @@ var sortRuleSet = validate.Interface[[]SortParam]().WithCast(func(ctx context.Co
 
 var QueryStringBaseRuleSet rules.RuleSet[QueryData] = validate.Object[QueryData]().
 	WithDynamicKey(fieldKeyRule, filterRuleSet.Any()).
+	WithDynamicKey(filterKeyRule, filterRuleSet.Any()).
 	WithDynamicBucket(fieldKeyRule, "Fields").
 	WithDynamicBucket(filterKeyRule, "Filters").
 	WithKey("sort", sortRuleSet.Any())

@@ -6,3 +6,5 @@ proto.zip/studio/validate v0.2.2-0.20240722153240-44522a83bf6e h1:c7sq9iB4BGpobS
 proto.zip/studio/validate v0.2.2-0.20240722153240-44522a83bf6e/go.mod h1:WsKH6LHuakH8s2Tbpf5o6fgFA1BvqirVCFrNS2CsPPI=
 proto.zip/studio/validate v0.2.2-0.20240807211218-7c956a6bb97b h1:/B1wS17P50q3c9+EBabMHfWe1/G+J+y5GLfkjzNH3Bc=
 proto.zip/studio/validate v0.2.2-0.20240807211218-7c956a6bb97b/go.mod h1:WsKH6LHuakH8s2Tbpf5o6fgFA1BvqirVCFrNS2CsPPI=
+proto.zip/studio/validate v0.2.2-0.20240910165429-eafb54e40551 h1:TgYrfq41+Z4/3h1p6iZ5hgZqTHUl8PYDWbZAAiQan7w=
+proto.zip/studio/validate v0.2.2-0.20240910165429-eafb54e40551/go.mod h1:WsKH6LHuakH8s2Tbpf5o6fgFA1BvqirVCFrNS2CsPPI=

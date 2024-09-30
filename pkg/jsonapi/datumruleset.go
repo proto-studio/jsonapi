@@ -2,17 +2,17 @@ package jsonapi
 
 import (
 	"context"
+	"reflect"
 
 	"proto.zip/studio/validate"
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
-	"proto.zip/studio/validate/pkg/rules/objects"
 )
 
 type DatumRuleSet[T any] struct {
 	idRuleSet            rules.RuleSet[string]
 	typeRuleSet          *rules.ConstantRuleSet[string]
-	relationshipsRuleSet *objects.ObjectRuleSet[map[string]Relationship, string, Relationship]
+	relationshipsRuleSet *rules.ObjectRuleSet[map[string]Relationship, string, Relationship]
 	attributesRuleSet    rules.RuleSet[T]
 	metaRuleSet          rules.RuleSet[map[string]any]
 	required             bool
@@ -66,7 +66,7 @@ func (ruleSet *DatumRuleSet[T]) Required() bool {
 	return ruleSet.required
 }
 
-func (ruleSet *DatumRuleSet[T]) Run(ctx context.Context, value any) (Datum[T], errors.ValidationErrorCollection) {
+func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationErrorCollection {
 	datumValidator := validate.Object[Datum[T]]().WithJson()
 	datumValidator = datumValidator.WithKey("id", ruleSet.idRuleSet.Any())
 	datumValidator = datumValidator.WithKey("type", ruleSet.typeRuleSet.Any())
@@ -74,18 +74,36 @@ func (ruleSet *DatumRuleSet[T]) Run(ctx context.Context, value any) (Datum[T], e
 	datumValidator = datumValidator.WithKey("relationships", ruleSet.relationshipsRuleSet.Any())
 	datumValidator = datumValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
 
-	out, errs := datumValidator.Run(ctx, value)
+	errs := datumValidator.Apply(ctx, input, output)
 
-	if errs == nil && out.Type == "" {
-		out.Type = ruleSet.typeRuleSet.Value()
+	if errs == nil {
+		t := ruleSet.typeRuleSet.Value()
+
+		switch o := (output).(type) {
+		case *Datum[T]:
+			o.Type = t
+		case *any:
+			// Output is a pointer to *Interface{} which points to Datum[T]
+			// I need to set
+			switch oo := (*o).(type) {
+			case Datum[T]:
+				oo.Type = t
+				reflect.ValueOf(output).Elem().Set(reflect.ValueOf(oo))
+			case map[string]any:
+				oo["Type"] = t
+				reflect.ValueOf(output).Elem().Set(reflect.ValueOf(oo))
+			}
+		case map[string]any:
+			o["Type"] = t
+		}
 	}
 
-	return out, errs
+	return errs
 }
 
 func (ruleSet *DatumRuleSet[T]) Evaluate(ctx context.Context, value Datum[T]) errors.ValidationErrorCollection {
-	_, errs := ruleSet.Run(ctx, value)
-	return errs
+	var out Datum[T]
+	return ruleSet.Apply(ctx, value, out)
 }
 
 func (ruleSet *DatumRuleSet[T]) Any() rules.RuleSet[any] {

@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"proto.zip/studio/jsonapi/pkg/jsonapi"
+	"proto.zip/studio/validate/pkg/errors"
+	"proto.zip/studio/validate/pkg/testhelpers"
 )
 
 // Requirements:
@@ -22,7 +24,8 @@ func TestQueryStringFields(t *testing.T) {
 
 	ctx := context.Background()
 
-	out, verrs := jsonapi.QueryStringBaseRuleSet.Run(ctx, parsed)
+	var out jsonapi.QueryData
+	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &out)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil, got: %s", verrs)
 	}
@@ -69,7 +72,8 @@ func TestQueryStringSort(t *testing.T) {
 
 	ctx := context.Background()
 
-	out, verrs := jsonapi.QueryStringBaseRuleSet.Run(ctx, parsed)
+	var out jsonapi.QueryData
+	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &out)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil, got: %s", verrs)
 	}
@@ -95,4 +99,16 @@ func TestQueryStringSort(t *testing.T) {
 	if !out.Sort[1].Descending {
 		t.Errorf(`Expected Sort[1].Descending to be true`)
 	}
+}
+
+// Requirements:
+// - Unexpected fields produce an error
+func TestQueryUnexpected(t *testing.T) {
+	qs := `foo=bar`
+	query, err := url.ParseQuery(qs)
+	if err != nil {
+		t.Fatalf("Expected parse error to be nil, got: %s", err)
+	}
+
+	testhelpers.MustNotApply(t, jsonapi.QueryStringBaseRuleSet.Any(), query, errors.CodeUnexpected)
 }

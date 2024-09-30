@@ -7,7 +7,6 @@ import (
 	"proto.zip/studio/validate"
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
-	"proto.zip/studio/validate/pkg/rules/objects"
 )
 
 func resourceLinkageCast(ctx context.Context, value any) (ResourceLinkage, errors.ValidationErrorCollection) {
@@ -18,11 +17,14 @@ func resourceLinkageCast(ctx context.Context, value any) (ResourceLinkage, error
 
 	v := reflect.ValueOf(value)
 	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
-		out, errs := validate.Array[ResourceIdentifierLinkage]().WithItemRuleSet(ResourceIdentifierLinkageRuleSet).Run(ctx, value)
+		var out []ResourceIdentifierLinkage
+		errs := validate.Array[ResourceIdentifierLinkage]().WithItemRuleSet(ResourceIdentifierLinkageRuleSet).Apply(ctx, value, &out)
 		return ResourceLinkageCollection(out), errs
 	}
 
-	return ResourceIdentifierLinkageRuleSet.Run(ctx, value)
+	var out ResourceIdentifierLinkage
+	errs := ResourceIdentifierLinkageRuleSet.Apply(ctx, value, &out)
+	return out, errs
 }
 
 var ResourceLinkageRuleSet rules.RuleSet[ResourceLinkage] = rules.Interface[ResourceLinkage]().WithCast(resourceLinkageCast)
@@ -36,7 +38,7 @@ var RelationshipRuleSet rules.RuleSet[Relationship] = validate.Object[Relationsh
 	WithKey("data", ResourceLinkageRuleSet.Any()).
 	WithKey("meta", validate.Map[any]().WithUnknown().Any())
 
-var RelationshipsRuleSet *objects.ObjectRuleSet[map[string]Relationship, string, Relationship] = validate.Map[Relationship]()
+var RelationshipsRuleSet *rules.ObjectRuleSet[map[string]Relationship, string, Relationship] = validate.Map[Relationship]()
 
 var IDRuleSet rules.RuleSet[string] = validate.String().WithStrict()
 

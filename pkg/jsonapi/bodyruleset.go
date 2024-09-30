@@ -56,19 +56,17 @@ func (ruleSet *SingleRuleSet[T]) Required() bool {
 	return ruleSet.required
 }
 
-func (ruleSet *SingleRuleSet[T]) Run(ctx context.Context, value any) (SingleDatumEnvelope[T], errors.ValidationErrorCollection) {
+func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationErrorCollection {
 	BodyValidator := validate.Object[SingleDatumEnvelope[T]]().WithJson()
 	BodyValidator = BodyValidator.WithKey("data", ruleSet.datumRuleSet.Any())
 	BodyValidator = BodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
 
-	out, errs := BodyValidator.Run(ctx, value)
-
-	return out, errs
+	return BodyValidator.Apply(ctx, input, output)
 }
 
 func (ruleSet *SingleRuleSet[T]) Evaluate(ctx context.Context, value SingleDatumEnvelope[T]) errors.ValidationErrorCollection {
-	_, errs := ruleSet.Run(ctx, value)
-	return errs
+	var out SingleDatumEnvelope[T]
+	return ruleSet.Apply(ctx, value, &out)
 }
 
 func (ruleSet *SingleRuleSet[T]) Any() rules.RuleSet[any] {
