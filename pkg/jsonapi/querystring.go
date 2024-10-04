@@ -88,6 +88,16 @@ var fieldKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^fields\[[^\]]+
 var filterKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
 
 var filterRuleSet = rules.Interface[FieldList]().WithCast(func(ctx context.Context, value any) (FieldList, errors.ValidationErrorCollection) {
+	// Filter is only allowed on index GET requests
+	method := MethodFromContext(ctx)
+	id := IdFromContext(ctx)
+
+	if id != "" || (method != "GET" && method != "HEAD" && method != "") {
+		return nil, errors.Collection(
+			errors.Errorf(errors.CodeForbidden, ctx, "Filter is only allowed on index GET requests"),
+		)
+	}
+
 	var strs []string
 	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
 

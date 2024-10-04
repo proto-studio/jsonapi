@@ -44,18 +44,32 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 		// If Fields is not nil, only serialize the fields in the FieldList
 		attrMap := make(map[string]any)
 		attrValue := reflect.ValueOf(d.Attributes)
-		attrType := attrValue.Type()
+		if attrValue.Kind() == reflect.Ptr {
+			attrValue = attrValue.Elem()
+		}
 
-		for i := 0; i < attrType.NumField(); i++ {
-			field := attrType.Field(i)
-			fieldName := field.Tag.Get("json")
-			if fieldName == "" {
-				fieldName = field.Name
+		switch attrValue.Kind() {
+		case reflect.Struct:
+			attrType := attrValue.Type()
+			for i := 0; i < attrType.NumField(); i++ {
+				field := attrType.Field(i)
+				fieldName := field.Tag.Get("json")
+				if fieldName == "" {
+					fieldName = field.Name
+				}
+				if d.Fields.Contains(fieldName) {
+					attrMap[fieldName] = attrValue.Field(i).Interface()
+				}
 			}
-			if d.Fields.Contains(fieldName) {
-				attrMap[fieldName] = attrValue.Field(i).Interface()
+		case reflect.Map:
+			for _, key := range attrValue.MapKeys() {
+				fieldName := key.String()
+				if d.Fields.Contains(fieldName) {
+					attrMap[fieldName] = attrValue.MapIndex(key).Interface()
+				}
 			}
 		}
+
 		if len(attrMap) > 0 {
 			result["attributes"] = attrMap
 		}

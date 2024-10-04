@@ -20,66 +20,130 @@ func TestMarshalJSON(t *testing.T) {
 		Age   int    `json:"age"`
 	}
 
-	attributes := ExampleAttributes{Name: "John Doe", Email: "john.doe@example.com", Age: 30}
+	exampleAttr := ExampleAttributes{Name: "John Doe", Email: "john.doe@example.com", Age: 30}
 
-	// Test with FieldList and ExtensionMembers
-	fieldList := jsonapi.NewFieldList("name", "email")
-
-	datumWithFields := jsonapi.Datum[ExampleAttributes]{
-		ID:         "123",
-		Type:       "example",
-		Attributes: attributes,
-		Fields:     fieldList,
-		ExtensionMembers: map[string]any{
-			"test:customField1": "customValue1",
-			"test:customField2": 42,
+	tests := []struct {
+		name     string
+		datum    any
+		expected string
+	}{
+		{
+			name: "Datum[ExampleAttributes] with FieldList and ExtensionMembers",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "123",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Fields:     jsonapi.NewFieldList("name", "email"),
+				ExtensionMembers: map[string]any{
+					"test:customField1": "customValue1",
+					"test:customField2": 42,
+				},
+			},
+			expected: `{
+				"id":"123",
+				"type":"example",
+				"attributes":{"name":"John Doe","email":"john.doe@example.com"},
+				"test:customField1":"customValue1",
+				"test:customField2":42
+			}`,
+		},
+		{
+			name: "Datum[ExampleAttributes] without FieldList and with ExtensionMembers",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "123",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Fields:     nil,
+				ExtensionMembers: map[string]any{
+					"test:customField1": "customValue1",
+					"test:customField2": 42,
+				},
+			},
+			expected: `{
+				"id":"123",
+				"type":"example",
+				"attributes":{"name":"John Doe","email":"john.doe@example.com","age":30},
+				"test:customField1":"customValue1",
+				"test:customField2":42
+			}`,
+		},
+		{
+			name: "Datum[*ExampleAttributes] with FieldList",
+			datum: jsonapi.Datum[*ExampleAttributes]{
+				ID:         "124",
+				Type:       "example",
+				Attributes: &exampleAttr,
+				Fields:     jsonapi.NewFieldList("name", "age"),
+			},
+			expected: `{
+				"id":"124",
+				"type":"example",
+				"attributes":{"name":"John Doe","age":30}
+			}`,
+		},
+		{
+			name: "Datum[*ExampleAttributes] without FieldList and with ExtensionMembers",
+			datum: jsonapi.Datum[*ExampleAttributes]{
+				ID:         "124",
+				Type:       "example",
+				Attributes: &exampleAttr,
+				Fields:     nil,
+				ExtensionMembers: map[string]any{
+					"test:customField1": "customValue1",
+					"test:customField2": 42,
+				},
+			},
+			expected: `{
+				"id":"124",
+				"type":"example",
+				"attributes":{"name":"John Doe","email":"john.doe@example.com","age":30},
+				"test:customField1":"customValue1",
+				"test:customField2":42
+			}`,
+		},
+		{
+			name: "Datum[map[string]any] without FieldList",
+			datum: jsonapi.Datum[map[string]any]{
+				ID:   "125",
+				Type: "example",
+				Attributes: map[string]any{
+					"name":  "Bob Smith",
+					"email": "bob.smith@example.com",
+					"age":   35,
+				},
+			},
+			expected: `{
+				"id":"125",
+				"type":"example",
+				"attributes":{"name":"Bob Smith","email":"bob.smith@example.com","age":35}
+			}`,
+		},
+		{
+			name: "Datum[ExampleAttributes] with empty FieldList",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "126",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Fields:     jsonapi.NewFieldList(),
+			},
+			expected: `{
+				"id":"126",
+				"type":"example"
+			}`,
 		},
 	}
 
-	expectedJSONWithFields := `{
-		"id":"123",
-		"type":"example",
-		"attributes":{"name":"John Doe","email":"john.doe@example.com"},
-		"test:customField1":"customValue1",
-		"test:customField2":42
-	}`
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := json.Marshal(tt.datum)
+			if err != nil {
+				t.Fatalf("Unexpected error during marshalling: %v", err)
+			}
 
-	actualJSONWithFields, err := json.Marshal(datumWithFields)
-	if err != nil {
-		t.Fatalf("Unexpected error during marshalling: %v", err)
-	}
-
-	if !jsonEqual(expectedJSONWithFields, string(actualJSONWithFields)) {
-		t.Errorf("Expected JSON: %s\nGot JSON: %s", expectedJSONWithFields, string(actualJSONWithFields))
-	}
-
-	// Test without FieldList (nil) and with ExtensionMembers
-	datumWithoutFields := jsonapi.Datum[ExampleAttributes]{
-		ID:         "123",
-		Type:       "example",
-		Attributes: attributes,
-		Fields:     nil, // No FieldList provided
-		ExtensionMembers: map[string]any{
-			"test:customField1": "customValue1",
-			"test:customField2": 42,
-		},
-	}
-
-	expectedJSONWithoutFields := `{
-		"id":"123",
-		"type":"example",
-		"attributes":{"name":"John Doe","email":"john.doe@example.com","age":30},
-		"test:customField1":"customValue1",
-		"test:customField2":42
-	}`
-
-	actualJSONWithoutFields, err := json.Marshal(datumWithoutFields)
-	if err != nil {
-		t.Fatalf("Unexpected error during marshalling: %v", err)
-	}
-
-	if !jsonEqual(expectedJSONWithoutFields, string(actualJSONWithoutFields)) {
-		t.Errorf("Expected JSON: %s\nGot JSON: %s", expectedJSONWithoutFields, string(actualJSONWithoutFields))
+			if !jsonEqual(tt.expected, string(actual)) {
+				t.Errorf("Test '%s' failed:\nExpected JSON: %s\nGot JSON: %s", tt.name, tt.expected, string(actual))
+			}
+		})
 	}
 }
 
