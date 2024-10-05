@@ -56,11 +56,14 @@ func (ruleSet *SingleRuleSet[T]) Required() bool {
 }
 
 func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationErrorCollection {
-	BodyValidator := rules.Struct[SingleDatumEnvelope[T]]().WithJson()
-	BodyValidator = BodyValidator.WithKey("data", ruleSet.datumRuleSet.Any())
-	BodyValidator = BodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
+	bodyValidator := rules.Struct[SingleDatumEnvelope[T]]().WithJson()
+	bodyValidator = bodyValidator.WithKey("data", ruleSet.datumRuleSet.Any())
+	bodyValidator = bodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
 
-	return BodyValidator.Apply(ctx, input, output)
+	bodyValidator = bodyValidator.WithDynamicBucket(atMembersKeyRule, "AtMembers")
+	bodyValidator = bodyValidator.WithDynamicBucket(extKeyRule, "ExtensionMembers")
+
+	return bodyValidator.Apply(ctx, input, output)
 }
 
 func (ruleSet *SingleRuleSet[T]) Evaluate(ctx context.Context, value SingleDatumEnvelope[T]) errors.ValidationErrorCollection {

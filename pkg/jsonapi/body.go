@@ -14,6 +14,7 @@ type Datum[T any] struct {
 	Relationships    map[string]Relationship `json:"relationships,omitempty" validate:"relationships"`
 	Meta             map[string]any          `json:"meta,omitempty" validate:"meta"`
 	ExtensionMembers map[string]any          `json:"-"`
+	AtMembers        map[string]any          `json:"-"`
 	Fields           ValueList               `json:"-"`
 }
 
@@ -159,6 +160,7 @@ type SingleDatumEnvelope[T any] struct {
 	Data             Datum[T]       `json:"data" validate:"data"`
 	Links            Links          `json:"links,omitempty"`
 	Meta             map[string]any `json:"meta,omitempty" validate:"meta"`
+	AtMembers        map[string]any `json:"-"`
 	ExtensionMembers map[string]any `json:"-"`
 }
 
@@ -166,5 +168,6 @@ type DatumCollectionEnvelope[T any] struct {
 	Data             []Datum[T]     `json:"data" validate:"data"`
 	Links            Links          `json:"links,omitempty"`
 	Meta             map[string]any `json:"meta,omitempty" validate:"meta"`
+	AtMembers        map[string]any `json:"-"`
 	ExtensionMembers map[string]any `json:"-"`
 }

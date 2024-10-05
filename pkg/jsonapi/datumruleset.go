@@ -73,6 +73,9 @@ func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input, output any) er
 	datumValidator = datumValidator.WithKey("relationships", ruleSet.relationshipsRuleSet.Any())
 	datumValidator = datumValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
 
+	datumValidator = datumValidator.WithDynamicBucket(atMembersKeyRule, "AtMembers")
+	datumValidator = datumValidator.WithDynamicBucket(extKeyRule, "ExtensionMembers")
+
 	errs := datumValidator.Apply(ctx, input, output)
 
 	if errs == nil {

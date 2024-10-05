@@ -77,10 +77,11 @@ type Include struct {
 }
 
 type QueryData struct {
-	Sort    []SortParam `validate:"sort"`
-	Fields  map[string]ValueList
-	Filters map[string]string
-	Include ValueList `validate:"include"`
+	Sort             []SortParam `validate:"sort"`
+	Fields           map[string]ValueList
+	Filters          map[string]string
+	Include          ValueList      `validate:"include"`
+	ExtensionMembers map[string]any `json:"-"`
 }
 
 var queryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithMaxLen(1)
@@ -164,4 +165,5 @@ var QueryStringBaseRuleSet rules.RuleSet[QueryData] = rules.Struct[QueryData]().
 	WithKey("include", includeRuleSet.Any()).
 	WithDynamicBucket(fieldKeyRule, "Fields").
 	WithDynamicBucket(filterKeyRule, "Filters").
+	WithDynamicBucket(extKeyRule, "ExtensionMembers").
 	WithKey("sort", sortRuleSet.Any())
