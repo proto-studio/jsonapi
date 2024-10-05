@@ -14,39 +14,39 @@ type SortParam struct {
 	Descending bool
 }
 
-type FieldList interface {
-	Fields() []string
+type ValueList interface {
+	Values() []string
 	Contains(field string) bool
 	doNotExtend()
 }
 
-type AllFieldsList struct{}
+type AllValuesList struct{}
 
-func (*AllFieldsList) Fields() []string {
+func (*AllValuesList) Values() []string {
 	return nil
 }
 
-func (*AllFieldsList) Contains(field string) bool {
+func (*AllValuesList) Contains(field string) bool {
 	return true
 }
 
-func (*AllFieldsList) doNotExtend() {}
+func (*AllValuesList) doNotExtend() {}
 
-type NoneFieldsList struct{}
+type NoneValuesList struct{}
 
-func (*NoneFieldsList) Fields() []string {
+func (*NoneValuesList) Values() []string {
 	return []string{}
 }
 
-func (*NoneFieldsList) Contains(field string) bool {
+func (*NoneValuesList) Contains(field string) bool {
 	return false
 }
 
-func (*NoneFieldsList) doNotExtend() {}
+func (*NoneValuesList) doNotExtend() {}
 
 type fieldListMap map[string]bool
 
-func (fl fieldListMap) Fields() []string {
+func (fl fieldListMap) Values() []string {
 	keys := make([]string, 0, len(fl))
 	for key := range fl {
 		keys = append(keys, key)
@@ -61,7 +61,7 @@ func (fl fieldListMap) Contains(field string) bool {
 
 func (fieldListMap) doNotExtend() {}
 
-func NewFieldList(fields ...string) FieldList {
+func NewFieldList(fields ...string) ValueList {
 	out := make(fieldListMap, len(fields))
 
 	for _, field := range fields {
@@ -78,8 +78,9 @@ type Include struct {
 
 type QueryData struct {
 	Sort    []SortParam `validate:"sort"`
-	Fields  map[string]FieldList
-	Filters map[string]any
+	Fields  map[string]ValueList
+	Filters map[string]string
+	Include ValueList `validate:"include"`
 }
 
 var queryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithMaxLen(1)
@@ -87,14 +88,16 @@ var queryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).Wi
 var fieldKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^fields\[[^\]]+\]$`), "")
 var filterKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
 
-var filterRuleSet = rules.Interface[FieldList]().WithCast(func(ctx context.Context, value any) (FieldList, errors.ValidationErrorCollection) {
-	// Filter is only allowed on index GET requests
-	method := MethodFromContext(ctx)
-	id := IdFromContext(ctx)
+// Filter is only allowed on index GET requests
+var filterRuleSet = rules.String().WithRule(HTTPMethodRule[string]("GET", "HEAD")).WithRule(IndexRule[string]())
 
-	if id != "" || (method != "GET" && method != "HEAD" && method != "") {
+var fieldsRuleSet = rules.Interface[ValueList]().WithCast(func(ctx context.Context, value any) (ValueList, errors.ValidationErrorCollection) {
+	// Fields is allowed on all methods except DELETE
+	method := MethodFromContext(ctx)
+
+	if method == "DELETE" {
 		return nil, errors.Collection(
-			errors.Errorf(errors.CodeForbidden, ctx, "Filter is only allowed on index GET requests"),
+			errors.Errorf(errors.CodeForbidden, ctx, "Fields are not allowed on DELETE requests"),
 		)
 	}
 
@@ -110,7 +113,20 @@ var filterRuleSet = rules.Interface[FieldList]().WithCast(func(ctx context.Conte
 	return NewFieldList(splitStrs...), nil
 })
 
+var includeRuleSet = fieldsRuleSet
+
 var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Context, value any) ([]SortParam, errors.ValidationErrorCollection) {
+
+	// Sort is only allowed on index GET requests
+	method := MethodFromContext(ctx)
+	id := IdFromContext(ctx)
+
+	if method != "" && (id != "" || (method != "GET" && method != "HEAD")) {
+		return nil, errors.Collection(
+			errors.Errorf(errors.CodeForbidden, ctx, "Sort is only allowed on index GET requests"),
+		)
+	}
+
 	var strs []string
 	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
 
@@ -143,8 +159,9 @@ var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Conte
 })
 
 var QueryStringBaseRuleSet rules.RuleSet[QueryData] = rules.Struct[QueryData]().
-	WithDynamicKey(fieldKeyRule, filterRuleSet.Any()).
+	WithDynamicKey(fieldKeyRule, fieldsRuleSet.Any()).
 	WithDynamicKey(filterKeyRule, filterRuleSet.Any()).
+	WithKey("include", includeRuleSet.Any()).
 	WithDynamicBucket(fieldKeyRule, "Fields").
 	WithDynamicBucket(filterKeyRule, "Filters").
 	WithKey("sort", sortRuleSet.Any())

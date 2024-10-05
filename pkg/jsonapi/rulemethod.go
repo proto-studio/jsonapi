@@ -43,3 +43,18 @@ func (rule *httpMethodRule[T]) String() string {
 func HTTPMethodRule[T any](methods ...string) rules.Rule[T] {
 	return &httpMethodRule[T]{methods: methods}
 }
+
+func IndexRule[T any]() rules.Rule[T] {
+	return rules.RuleFunc[T](func(ctx context.Context, value T) errors.ValidationErrorCollection {
+		method := MethodFromContext(ctx)
+		id := IdFromContext(ctx)
+
+		if method != "" && id != "" {
+			return errors.Collection(
+				errors.Errorf(errors.CodeForbidden, ctx, "Value is only allowed on index requests"),
+			)
+		}
+
+		return nil
+	})
+}

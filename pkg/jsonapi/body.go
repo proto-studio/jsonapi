@@ -14,7 +14,7 @@ type Datum[T any] struct {
 	Relationships    map[string]Relationship `json:"relationships,omitempty" validate:"relationships"`
 	Meta             map[string]any          `json:"meta,omitempty" validate:"meta"`
 	ExtensionMembers map[string]any          `json:"-"`
-	Fields           FieldList               `json:"-"`
+	Fields           ValueList               `json:"-"`
 }
 
 // MarshalJSON implements the json.Marshaler interface for Datum[T].

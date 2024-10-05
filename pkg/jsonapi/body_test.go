@@ -218,7 +218,7 @@ func TestDatumUnmarshalJSON(t *testing.T) {
 	// Verify Fields
 	expectedFields := []string{"email", "name"}
 
-	actualFields := datum.Fields.Fields()
+	actualFields := datum.Fields.Values()
 	sort.Slice(actualFields, func(i, j int) bool {
 		return actualFields[i] < actualFields[j]
 	})

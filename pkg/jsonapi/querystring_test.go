@@ -40,7 +40,7 @@ func TestQueryStringFields(t *testing.T) {
 		t.Fatalf("Expected fields[articles] to be set")
 	}
 
-	allFields := articles.Fields()
+	allFields := articles.Values()
 
 	if len(allFields) != 2 {
 		t.Fatalf("Expected 2 fields, got %d", len(allFields))
