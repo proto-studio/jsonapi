@@ -80,11 +80,15 @@ type QueryData struct {
 	Sort             []SortParam `validate:"sort"`
 	Fields           map[string]ValueList
 	Filters          map[string]string
-	Include          ValueList      `validate:"include"`
-	ExtensionMembers map[string]any `json:"-"`
+	PageSize         []int                `validate:"page[size]"`
+	After            map[string]ValueList `validate:"page[after]"`
+	Before           map[string]ValueList `validate:"page[before]"`
+	Include          ValueList            `validate:"include"`
+	ExtensionMembers map[string]any       `json:"-"`
 }
 
-var queryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithMaxLen(1)
+var stringQueryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithMaxLen(1)
+var intQueryValueRuleSet = rules.Slice[int]().WithItemRuleSet(rules.Int()).WithMaxLen(1)
 
 var fieldKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^fields\[[^\]]+\]$`), "")
 var filterKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
@@ -103,7 +107,7 @@ var fieldsRuleSet = rules.Interface[ValueList]().WithCast(func(ctx context.Conte
 	}
 
 	var strs []string
-	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
+	verrs := stringQueryValueRuleSet.Apply(ctx, value, &strs)
 
 	if verrs != nil {
 		return nil, verrs
@@ -129,7 +133,7 @@ var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Conte
 	}
 
 	var strs []string
-	verrs := queryValueRuleSet.Apply(ctx, value, &strs)
+	verrs := stringQueryValueRuleSet.Apply(ctx, value, &strs)
 
 	if verrs != nil {
 		return nil, verrs
@@ -159,10 +163,15 @@ var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Conte
 	return out, nil
 })
 
+var pageSizeRuleSet = intQueryValueRuleSet.WithRule(HTTPMethodRule[[]int]("GET", "HEAD")).WithRule(IndexRule[[]int]()).WithItemRuleSet(rules.Int().WithMin(1).WithMax(100)).Any()
+
 var QueryStringBaseRuleSet rules.RuleSet[QueryData] = rules.Struct[QueryData]().
 	WithDynamicKey(fieldKeyRule, fieldsRuleSet.Any()).
 	WithDynamicKey(filterKeyRule, filterRuleSet.Any()).
 	WithKey("include", includeRuleSet.Any()).
+	WithKey("page[size]", pageSizeRuleSet).
+	WithKey("page[after]", rules.String().Any()).
+	WithKey("page[before]", rules.String().Any()).
 	WithDynamicBucket(fieldKeyRule, "Fields").
 	WithDynamicBucket(filterKeyRule, "Filters").
 	WithDynamicBucket(extKeyRule, "ExtensionMembers").
