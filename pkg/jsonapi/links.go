@@ -35,11 +35,11 @@ func (NilLink) Href() string {
 	return ""
 }
 
-func (*NilLink) MarshalJSON() ([]byte, error) {
+func (NilLink) MarshalJSON() ([]byte, error) {
 	return []byte("null"), nil
 }
 
-func (*NilLink) UnmarshalJSON(data []byte) error {
+func (NilLink) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
