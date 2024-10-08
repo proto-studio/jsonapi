@@ -80,11 +80,11 @@ type QueryData struct {
 	Sort             []SortParam `validate:"sort"`
 	Fields           map[string]ValueList
 	Filters          map[string]string
-	PageSize         []int                `validate:"page[size]"`
-	After            map[string]ValueList `validate:"page[after]"`
-	Before           map[string]ValueList `validate:"page[before]"`
-	Include          ValueList            `validate:"include"`
-	ExtensionMembers map[string]any       `json:"-"`
+	PageSize         []int          `validate:"page[size]"`
+	After            []string       `validate:"page[after]"`
+	Before           []string       `validate:"page[before]"`
+	Include          ValueList      `validate:"include"`
+	ExtensionMembers map[string]any `json:"-"`
 }
 
 var stringQueryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithMaxLen(1)
@@ -165,13 +165,15 @@ var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Conte
 
 var pageSizeRuleSet = intQueryValueRuleSet.WithRule(HTTPMethodRule[[]int]("GET", "HEAD")).WithRule(IndexRule[[]int]()).WithItemRuleSet(rules.Int().WithMin(1).WithMax(100)).Any()
 
+var cusorRuleSet = stringQueryValueRuleSet.WithRule(HTTPMethodRule[[]string]("GET", "HEAD")).WithRule(IndexRule[[]string]()).WithMinLen(1).Any()
+
 var QueryStringBaseRuleSet rules.RuleSet[QueryData] = rules.Struct[QueryData]().
 	WithDynamicKey(fieldKeyRule, fieldsRuleSet.Any()).
 	WithDynamicKey(filterKeyRule, filterRuleSet.Any()).
 	WithKey("include", includeRuleSet.Any()).
 	WithKey("page[size]", pageSizeRuleSet).
-	WithKey("page[after]", rules.String().Any()).
-	WithKey("page[before]", rules.String().Any()).
+	WithKey("page[after]", cusorRuleSet).
+	WithKey("page[before]", cusorRuleSet).
 	WithDynamicBucket(fieldKeyRule, "Fields").
 	WithDynamicBucket(filterKeyRule, "Filters").
 	WithDynamicBucket(extKeyRule, "ExtensionMembers").
