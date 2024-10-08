@@ -1,6 +1,6 @@
 # Json:API
 
-This library aims to provide the most complete Go implementation of the [Json:API spec](https://jsonapi.org/format/) possible.
+This library aims to provide the most complete Go implementation of the [Json:API v1.1 spec](https://jsonapi.org/format/) possible.
 
 It can be used for both Go clients and servers.
 
@@ -16,12 +16,11 @@ Features include:
 - Detailed error handling returns errors that are compliant with the Json:API spec.
 - Different validation rules depending on the HTTP method.
 
-The following features of the Json:API spec are currently supported:
+The following features of the Json:API v1.1 spec are currently supported:
 
 - Request and response compliance checking.
 - Sparse field sets.
 - Filters.
-- Cursor pagination.
 - Sorting.
 - Error objects.
 - Version information.
@@ -30,6 +29,12 @@ The following features of the Json:API spec are currently supported:
 - Links (including nullable, string, and structured links).
 - Relationships (including nullable relationships).
 - Full error object support.
+- Extensions.
+- "@-Members"
+
+You can use any extension or profile with this library. The following Profiles are directly supported:
+
+- [Cursor Pagination](https://jsonapi.org/profiles/ethanresnick/cursor-pagination/)
 
 ## Working with Nullable Values
 

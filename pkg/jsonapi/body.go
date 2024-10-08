@@ -30,9 +30,6 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 	if len(d.Links) > 0 {
 		result["links"] = d.Links
 	}
-	if len(d.Relationships) > 0 {
-		result["relationships"] = d.Relationships
-	}
 	if len(d.Meta) > 0 {
 		result["meta"] = d.Meta
 	}
@@ -41,6 +38,9 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 	if d.Fields == nil {
 		// If Fields is nil, marshal Attributes as is
 		result["attributes"] = d.Attributes
+		if len(d.Relationships) > 0 {
+			result["relationships"] = d.Relationships
+		}
 	} else {
 		// If Fields is not nil, only serialize the fields in the FieldList
 		attrMap := make(map[string]any)
@@ -73,6 +73,19 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 
 		if len(attrMap) > 0 {
 			result["attributes"] = attrMap
+		}
+
+		// Handle Relationships field
+		if len(d.Relationships) > 0 {
+			relMap := make(map[string]Relationship)
+			for relName, rel := range d.Relationships {
+				if d.Fields.Contains(relName) {
+					relMap[relName] = rel
+				}
+			}
+			if len(relMap) > 0 {
+				result["relationships"] = relMap
+			}
 		}
 	}
 
