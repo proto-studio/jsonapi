@@ -29,6 +29,20 @@ func (str StringLink) Href() string {
 	return string(str)
 }
 
+type NilLink struct{}
+
+func (NilLink) Href() string {
+	return ""
+}
+
+func (*NilLink) MarshalJSON() ([]byte, error) {
+	return []byte("null"), nil
+}
+
+func (*NilLink) UnmarshalJSON(data []byte) error {
+	return nil
+}
+
 type Links map[string]Link
 
 // UnmarshalJSON custom unmarshaller for the Links map

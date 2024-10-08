@@ -24,6 +24,10 @@ func (n NilResourceLinkage) MarshalJSON() ([]byte, error) {
 	return []byte("null"), nil
 }
 
+func (NilResourceLinkage) UnmarshalJSON(data []byte) error {
+	return nil
+}
+
 func (NilResourceLinkage) doNotExtend() {}
 
 type ResourceLinkageCollection []ResourceIdentifierLinkage
