@@ -104,3 +104,60 @@ func TestWithUnknownRelationshipsBody(t *testing.T) {
 		t.Errorf("Expected identifier resource linkage")
 	}
 }
+
+// TestSingleDatum_AttributeFields ensures that the Fields map contains only the field names
+// that were present in the attributes object, excluding fields not in the JSON.
+func TestSingleDatum_AttributeFields(t *testing.T) {
+	type testDatum struct {
+		Name  string
+		Age   int
+		Email string // This field won't be in the JSON
+	}
+
+	datumRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().Any()).
+		WithKey("Age", rules.Int().Any()).
+		WithKey("Email", rules.String().Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", datumRuleSet)
+
+	ctx := context.Background()
+
+	testJson := `{
+		"data": {
+			"id": "abc",
+			"type": "tests",
+			"attributes": {
+				"Name": "John Doe",
+				"Age": 30
+			}
+		}
+	}`
+
+	var testFields jsonapi.SingleDatumEnvelope[testDatum]
+	errs := ruleSet.Apply(ctx, testJson, &testFields)
+
+	if errs != nil {
+		t.Fatalf("Expected errors to be nil, got: %s", errs.Error())
+	}
+
+	expectedFields := []string{"Name", "Age"}
+
+	if testFields.Data.Fields == nil {
+		t.Fatalf("Expected Fields to be initialized, but it was nil")
+	}
+	if len(testFields.Data.Fields.Values()) != len(expectedFields) {
+		t.Errorf("Expected Fields to have %d entries, got %d", len(expectedFields), len(testFields.Data.Fields.Values()))
+	}
+
+	for _, field := range expectedFields {
+		if !testFields.Data.Fields.Contains(field) {
+			t.Errorf("Expected Fields to contain '%s', but it was missing", field)
+		}
+	}
+
+	// Check that the Email field is not in the Fields map
+	if testFields.Data.Fields.Contains("Email") {
+		t.Errorf("Fields map should not contain 'Email', but it was present")
+	}
+}

@@ -3,7 +3,7 @@ package jsonapi
 // Error represents the main error structure.
 type Error struct {
 	// ID is a unique identifier for this particular occurrence of the problem.
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 
 	// Links contains links related to the error.
 	Links *ErrorLinks `json:"links,omitempty"`
@@ -16,7 +16,7 @@ type Error struct {
 
 	// Title is a short, human-readable summary of the problem.
 	// It should not change from occurrence to occurrence of the problem, except for purposes of localization.
-	Title string `json:"title"`
+	Title string `json:"title,omitempty"`
 
 	// Detail is a human-readable explanation specific to this occurrence of the problem.
 	// Like Title, this field’s value can be localized.

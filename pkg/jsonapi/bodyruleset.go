@@ -2,6 +2,7 @@ package jsonapi
 
 import (
 	"context"
+	"encoding/json"
 
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
@@ -56,14 +57,49 @@ func (ruleSet *SingleRuleSet[T]) Required() bool {
 }
 
 func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationErrorCollection {
-	bodyValidator := rules.Struct[SingleDatumEnvelope[T]]().WithJson()
+	// ObjectRuleSet is capable of decoding raw JSON but in this case we want to decode the JSON
+	// ahead of time into a map so we can assign fields.
+	// In the future if support is added upstream we can switch to using that.
+	var decodedInput any
+	if inputStr, ok := input.(string); ok {
+		if err := json.Unmarshal([]byte(inputStr), &decodedInput); err != nil {
+			return errors.Collection(errors.Errorf(errors.CodeEncoding, ctx, "Body must be Json encoded"))
+		}
+		input = decodedInput
+	} else if inputMap, ok := input.(map[string]any); ok {
+		decodedInput = inputMap
+	}
+
+	bodyValidator := rules.Struct[SingleDatumEnvelope[T]]()
 	bodyValidator = bodyValidator.WithKey("data", ruleSet.datumRuleSet.Any())
 	bodyValidator = bodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
 
 	bodyValidator = bodyValidator.WithDynamicBucket(atMembersKeyRule, "AtMembers")
 	bodyValidator = bodyValidator.WithDynamicBucket(extKeyRule, "ExtensionMembers")
 
-	return bodyValidator.Apply(ctx, input, output)
+	err := bodyValidator.Apply(ctx, input, output)
+
+	if err != nil {
+		return err
+	}
+
+	if decodedInput != nil {
+		inputMap := decodedInput.(map[string]any)
+		data := inputMap["data"].(map[string]any)
+		attributes, ok := data["attributes"].(map[string]any)
+		if ok {
+			fields := make(fieldListMap)
+			for key := range attributes {
+				fields[key] = true
+			}
+
+			if outputEnvelope, ok := output.(*SingleDatumEnvelope[T]); ok {
+				outputEnvelope.Data.Fields = fields
+			}
+		}
+	}
+
+	return nil
 }
 
 func (ruleSet *SingleRuleSet[T]) Evaluate(ctx context.Context, value SingleDatumEnvelope[T]) errors.ValidationErrorCollection {
