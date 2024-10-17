@@ -47,7 +47,7 @@ func (rule *httpMethodRule[T, TK]) KeyRules() []rules.Rule[TK] {
 }
 
 // HTTPMethodRule creates a new Rule that checks if the HTTP method is one of the specified methods.
-func HTTPMethodRule[T any, TK comparable](methods ...string) rules.Rule[T] {
+func HTTPMethodRule[T any, TK comparable](methods ...string) *httpMethodRule[T, TK] {
 	return &httpMethodRule[T, TK]{methods: methods}
 }
 
