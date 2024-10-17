@@ -9,13 +9,13 @@ import (
 )
 
 // Implements the Rule interface for maximum
-type httpMethodRule[T any] struct {
+type httpMethodRule[T any, TK comparable] struct {
 	methods []string
 }
 
 // Evaluate returns an error if the method in the context is not one of the specified methods.
 // If no method is specified in the context, it will always return nil.
-func (rule *httpMethodRule[T]) Evaluate(ctx context.Context, value T) errors.ValidationErrorCollection {
+func (rule *httpMethodRule[T, TK]) Evaluate(ctx context.Context, value T) errors.ValidationErrorCollection {
 	method := MethodFromContext(ctx)
 
 	for _, allowedMethod := range rule.methods {
@@ -30,21 +30,29 @@ func (rule *httpMethodRule[T]) Evaluate(ctx context.Context, value T) errors.Val
 }
 
 // Conflict returns true for any maximum rule.
-func (rule *httpMethodRule[T]) Conflict(x rules.Rule[T]) bool {
-	_, ok := x.(*httpMethodRule[T])
+func (rule *httpMethodRule[T, TK]) Conflict(x rules.Rule[T]) bool {
+	_, ok := x.(*httpMethodRule[T, TK])
 	return ok
 }
 
 // String returns the string representation of the method rule.
-func (rule *httpMethodRule[T]) String() string {
+func (rule *httpMethodRule[T, TK]) String() string {
 	return fmt.Sprintf("HttpMethod(%v)", rule.methods)
 }
 
-func HTTPMethodRule[T any](methods ...string) rules.Rule[T] {
-	return &httpMethodRule[T]{methods: methods}
+// KeyRules returns an empty slice of rules.Rule[TK] since this rule is not key-specific.
+// Implementing this method allows us to use this rule as a conditional rule in a ObjectRuleSet directly.
+func (rule *httpMethodRule[T, TK]) KeyRules() []rules.Rule[TK] {
+	return []rules.Rule[TK]{}
 }
 
-func IndexRule[T any]() rules.Rule[T] {
+// HTTPMethodRule creates a new Rule that checks if the HTTP method is one of the specified methods.
+func HTTPMethodRule[T any, TK comparable](methods ...string) rules.Rule[T] {
+	return &httpMethodRule[T, TK]{methods: methods}
+}
+
+// IndexRule creates a new Rule that checks if the request is an index request.
+func IndexRule[T any, TK comparable]() rules.Rule[T] {
 	return rules.RuleFunc[T](func(ctx context.Context, value T) errors.ValidationErrorCollection {
 		method := MethodFromContext(ctx)
 		id := IdFromContext(ctx)

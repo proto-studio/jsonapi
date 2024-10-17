@@ -94,7 +94,7 @@ var fieldKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^fields\[[^\]]+
 var filterKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
 
 // Filter is only allowed on index GET requests
-var filterRuleSet = rules.String().WithRule(HTTPMethodRule[string]("GET", "HEAD")).WithRule(IndexRule[string]())
+var filterRuleSet = rules.String().WithRule(HTTPMethodRule[string, string]("GET", "HEAD")).WithRule(IndexRule[string, string]())
 
 var fieldsRuleSet = rules.Interface[ValueList]().WithCast(func(ctx context.Context, value any) (ValueList, errors.ValidationErrorCollection) {
 	// Fields is allowed on all methods except DELETE
@@ -163,9 +163,9 @@ var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Conte
 	return out, nil
 })
 
-var pageSizeRuleSet = intQueryValueRuleSet.WithRule(HTTPMethodRule[[]int]("GET", "HEAD")).WithRule(IndexRule[[]int]()).WithItemRuleSet(rules.Int().WithMin(1).WithMax(100)).Any()
+var pageSizeRuleSet = intQueryValueRuleSet.WithRule(HTTPMethodRule[[]int, string]("GET", "HEAD")).WithRule(IndexRule[[]int, string]()).WithItemRuleSet(rules.Int().WithMin(1).WithMax(100)).Any()
 
-var cusorRuleSet = stringQueryValueRuleSet.WithRule(HTTPMethodRule[[]string]("GET", "HEAD")).WithRule(IndexRule[[]string]()).WithMinLen(1).Any()
+var cusorRuleSet = stringQueryValueRuleSet.WithRule(HTTPMethodRule[[]string, string]("GET", "HEAD")).WithRule(IndexRule[[]string, string]()).WithMinLen(1).Any()
 
 var QueryStringBaseRuleSet rules.RuleSet[QueryData] = rules.Struct[QueryData]().
 	WithDynamicKey(fieldKeyRule, fieldsRuleSet.Any()).
