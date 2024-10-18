@@ -79,7 +79,7 @@ type Include struct {
 type QueryData struct {
 	Sort             []SortParam `validate:"sort"`
 	Fields           map[string]ValueList
-	Filters          map[string]string
+	Filters          map[string][]string
 	PageSize         []int          `validate:"page[size]"`
 	After            []string       `validate:"page[after]"`
 	Before           []string       `validate:"page[before]"`
@@ -94,7 +94,7 @@ var fieldKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^fields\[[^\]]+
 var filterKeyRule = rules.String().WithRegexp(regexp.MustCompile(`^filter\[[^\]]+\]$`), "")
 
 // Filter is only allowed on index GET requests
-var filterRuleSet = rules.String().WithRule(HTTPMethodRule[string, string]("GET", "HEAD")).WithRule(IndexRule[string, string]())
+var filterRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithRule(HTTPMethodRule[[]string, string]("GET", "HEAD")).WithRule(IndexRule[[]string, string]())
 
 var fieldsRuleSet = rules.Interface[ValueList]().WithCast(func(ctx context.Context, value any) (ValueList, errors.ValidationErrorCollection) {
 	// Fields is allowed on all methods except DELETE
