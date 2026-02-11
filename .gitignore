@@ -2,3 +2,8 @@
 coverage.out
 .vscode
 *.grc.bk
+
+# Binaries and test binaries
+/server
+/jsonapi.test
+*.test

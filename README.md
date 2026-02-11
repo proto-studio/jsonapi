@@ -1,70 +1,92 @@
 # Json:API
 
-This library aims to provide the most complete Go implementation of the [Json:API v1.1 spec](https://jsonapi.org/format/) possible.
+[![Tests](https://github.com/proto-studio/jsonapi/actions/workflows/tests.yml/badge.svg)](https://github.com/proto-studio/jsonapi/actions/workflows/tests.yml)
+[![GoDoc](https://pkg.go.dev/badge/proto.zip/studio/jsonapi)](https://pkg.go.dev/proto.zip/studio/jsonapi)
+[![codecov](https://codecov.io/gh/proto-studio/jsonapi/graph/badge.svg)](https://codecov.io/gh/proto-studio/jsonapi)
+[![Go Report Card](https://goreportcard.com/badge/proto.zip/studio/jsonapi)](https://goreportcard.com/report/proto.zip/studio/jsonapi)
+[![Discord Chat](https://img.shields.io/badge/Discord-chat-blue?logo=Discord&logoColor=white)](https://proto.studio/social/discord)
 
-It can be used for both Go clients and servers.
+This library is a Go implementation of the [Json:API v1.1 spec](https://jsonapi.org/format/) for both clients and servers.
 
-In addition to the normal marshalling/unmarshalling it also includes functionality for ensuring
-that the incoming Json:API documents are valid according to the spec.
+Project goals:
 
-Features include:
+1. Full marshalling and unmarshalling that works with `json.Marshal` and `json.Unmarshal`.
+2. Spec-compliant validation with clear, actionable errors.
+3. Type-safe resources and attributes using generics, with first-class support for nullable values and sparse fields.
+
+Features:
 
 - Works with `json.Unmarshal` and `json.Marshal`.
 - Strictly typed attributes using Go generics.
-- Support for nullable values.
-- Powerful validation powered by [Proto Validate](https://github.com/proto-studio/protovalidate).
-- Detailed error handling returns errors that are compliant with the Json:API spec.
-- Different validation rules depending on the HTTP method.
+- Support for nullable values and distinguishing “absent” from “present but null”.
+- Validation powered by [ProtoValidate](https://github.com/proto-studio/protovalidate) (Go package: `proto.zip/studio/validate`).
+- Errors that comply with the Json:API error object format.
+- Validation rules that can vary by HTTP method.
 
-The following features of the Json:API v1.1 spec are currently supported:
+Supported Json:API v1.1 features:
 
 - Request and response compliance checking.
-- Sparse field sets.
-- Filters.
-- Sorting.
-- Error objects.
-- Version information.
-- Meta information.
-- Include / compound documents.
-- Links (including nullable, string, and structured links).
-- Relationships (including nullable relationships).
-- Full error object support.
-- Extensions.
-- "@-Members"
+- Sparse field sets, filters, sorting.
+- Error objects and version/meta information.
+- Include and compound documents.
+- Links (nullable, string, and structured) and relationships (including nullable).
+- Extensions and @-members (captured and round-tripped).
 
-You can use any extension or profile with this library. The following Profiles are directly supported:
+You can use any extension or profile. The following profile is directly supported:
 
 - [Cursor Pagination](https://jsonapi.org/profiles/ethanresnick/cursor-pagination/)
 
+## Getting Started
+
+### Quick Start
+
+```bash
+go get proto.zip/studio/jsonapi
+```
+
+Simple usage:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"proto.zip/studio/jsonapi"
+	"proto.zip/studio/validate/pkg/rules"
+)
+
+func main() {
+	attributesRuleSet := jsonapi.Attributes().
+		WithJson().
+		WithKey("title", rules.String().Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[map[string]any]("articles", attributesRuleSet)
+	ctx := context.Background()
+
+	doc := `{"data":{"type":"articles","id":"1","attributes":{"title":"Hello"}}}`
+	var envelope jsonapi.SingleDatumEnvelope[map[string]any]
+	if errs := ruleSet.Apply(ctx, doc, &envelope); errs != nil {
+		fmt.Println(errs)
+		return
+	}
+	fmt.Println(envelope.Data.Attributes["title"]) // Hello
+}
+```
+
 ## Working with Nullable Values
 
-An nil value is different in Json:API than a value that is not present.
+A nil value is different in Json:API than a value that is not present.
 
-For example, when patching a attribute if the value is explicitly set to null that indicates
-the consumer wants the attribute to be removed. But if it is not present in the request that
-means the consumer wants to leave the attribute as is (including if the attribute was already
-at its default value).
+When patching an attribute, an explicit `null` means “remove this attribute.” Omitting the member means “leave it unchanged.” The same applies to relationships. In responses, a nil link or relationship means the server is explicitly indicating it is not present.
 
-The same is also true for relationships.
+The library provides custom types with `MarshalJSON` and `UnmarshalJSON` so you can distinguish absent from null. When unmarshaling, `Datum.Fields` is set to the list of attribute names that appeared in the JSON, so you can tell which attributes were explicitly set (including to empty or null) and which were omitted.
 
-Likewise, in the server response a nil value for a relationship or link indicates that the
-server has knowledge of the relationship/link and is explicitly indicating that it is not
-present.
+## Versioning
 
-To handle these cases we use custom types for the fields that allow us to distinguish between
-a value that is not present and a value that is present but set to nil. These types also provide
-custom `MarshalJSON` and `UnmarshalJSON` functions to properly set the value to nil at the
-appropriate times.
+This package follows conventional Go versioning. Any version before 1.0.0 is considered unstable and the API may change. Backwards incompatible changes in unstable releases will, when possible, deprecate first and be documented in release notes.
 
-Likewise when unmarshaling with set the `Fields` value to a list of all the attributes that
-were set in the Json request. This allows the caller to know what attributes were explicitly
-set to an empty or nil value and which ones were just not present in the request.
+## Support
 
-
-
-
-
-
-
-
-
+For community support, join the [ProtoStudio Discord Community](https://proto.studio/social/discord). For commercial support, contact [Curioso Industries](https://curiosoindustries.com).

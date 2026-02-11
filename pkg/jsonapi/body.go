@@ -7,10 +7,11 @@ import (
 )
 
 type Datum[T any] struct {
-	ID               string                  `json:"id" validate:"id"`
+	ID               string                  `json:"id,omitempty" validate:"id"`
+	Lid              string                  `json:"lid,omitempty" validate:"lid"`
 	Type             string                  `json:"type" validate:"type"`
 	Attributes       T                       `json:"attributes" validate:"attributes"`
-	Links            Links                   `json:"links,omitempty"`
+	Links            Links                   `json:"links,omitempty" validate:"links"`
 	Relationships    map[string]Relationship `json:"relationships,omitempty" validate:"relationships"`
 	Meta             map[string]any          `json:"meta,omitempty" validate:"meta"`
 	ExtensionMembers map[string]any          `json:"-"`
@@ -19,7 +20,7 @@ type Datum[T any] struct {
 }
 
 // MarshalJSON implements the json.Marshaler interface for Datum[T].
-// Output is filtered by Fields if present and extension members are copied into the resulting Json.
+// MarshalJSON serializes the datum; output is filtered by Fields if present and extension members are copied into the resulting JSON.
 func (d Datum[T]) MarshalJSON() ([]byte, error) {
 	// Create a map to hold the final JSON object
 	result := make(map[string]any)
@@ -27,6 +28,9 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 	// Add non-Attributes fields
 	result["id"] = d.ID
 	result["type"] = d.Type
+	if d.Lid != "" {
+		result["lid"] = d.Lid
+	}
 	if len(d.Links) > 0 {
 		result["links"] = d.Links
 	}
@@ -89,8 +93,11 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 		}
 	}
 
-	// Copy all key-value pairs from ExtensionMembers to the parent JSON object
+	// Copy all key-value pairs from ExtensionMembers and AtMembers to the parent JSON object
 	for key, value := range d.ExtensionMembers {
+		result[key] = value
+	}
+	for key, value := range d.AtMembers {
 		result[key] = value
 	}
 
@@ -98,7 +105,7 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(result)
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface for Datum
+// UnmarshalJSON implements the json.Unmarshaler interface for Datum[T].
 func (d *Datum[T]) UnmarshalJSON(data []byte) error {
 	// Unmarshal the data into a map of json.RawMessage
 	var rawData map[string]json.RawMessage
@@ -149,8 +156,18 @@ func (d *Datum[T]) UnmarshalJSON(data []byte) error {
 				}
 			}
 		} else {
-			// Handle ExtensionMembers if the key contains a ":" and it's not at the start
-			if idx := strings.Index(key, ":"); idx > 0 {
+			// Handle @-members (names beginning with "@")
+			if strings.HasPrefix(key, "@") {
+				var rawValue any
+				if err := json.Unmarshal(value, &rawValue); err != nil {
+					return err
+				}
+				if d.AtMembers == nil {
+					d.AtMembers = make(map[string]any)
+				}
+				d.AtMembers[key] = rawValue
+			} else if idx := strings.Index(key, ":"); idx > 0 {
+				// Handle ExtensionMembers if the key contains a ":" and it's not at the start
 				var rawValue any
 				if err := json.Unmarshal(value, &rawValue); err != nil {
 					return err
@@ -170,19 +187,20 @@ func (d *Datum[T]) UnmarshalJSON(data []byte) error {
 }
 
 type SingleDatumEnvelope[T any] struct {
-	Data             Datum[T]       `json:"data" validate:"data"`
-	Links            Links          `json:"links,omitempty"`
+	Data             Datum[T]       `json:"data,omitempty" validate:"data"`
+	Links            Links          `json:"links,omitempty" validate:"links"`
 	Meta             map[string]any `json:"meta,omitempty" validate:"meta"`
-	Included         []any          `json:"included,omitempty"`
+	Included         []any          `json:"included,omitempty" validate:"included"`
+	JsonAPI          map[string]any `json:"jsonapi,omitempty" validate:"jsonapi"`
 	AtMembers        map[string]any `json:"-"`
 	ExtensionMembers map[string]any `json:"-"`
 }
 
 type DatumCollectionEnvelope[T any] struct {
 	Data             []Datum[T]     `json:"data" validate:"data"`
-	Links            Links          `json:"links,omitempty"`
+	Links            Links          `json:"links,omitempty" validate:"links"`
 	Meta             map[string]any `json:"meta,omitempty" validate:"meta"`
-	Included         []any          `json:"included,omitempty"`
+	Included         []any          `json:"included,omitempty" validate:"included"`
 	AtMembers        map[string]any `json:"-"`
 	ExtensionMembers map[string]any `json:"-"`
 }

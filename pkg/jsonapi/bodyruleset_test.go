@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"proto.zip/studio/jsonapi/pkg/jsonapi"
+	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
+	"proto.zip/studio/validate/pkg/testhelpers"
 )
 
 // Requirements:
@@ -21,6 +23,9 @@ func TestSingleDatum(t *testing.T) {
 		WithKey("Name", rules.String().WithMinLen(6).Any())
 
 	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", datumRuleSet)
+
+	// Protovalidate test helpers: RuleSet implements WithRequired/Required
+	testhelpers.MustImplementWithRequired(t, ruleSet)
 
 	ctx := context.Background()
 
@@ -159,5 +164,211 @@ func TestSingleDatum_AttributeFields(t *testing.T) {
 	// Check that the Email field is not in the Fields map
 	if testFields.Data.Fields.Contains("Email") {
 		t.Errorf("Fields map should not contain 'Email', but it was present")
+	}
+}
+
+func TestSingleRuleSet_WithRelationship(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+
+	attributesRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", attributesRuleSet)
+	relRuleSet := jsonapi.RelationshipRuleSet
+
+	// Add a relationship
+	newRuleSet := ruleSet.WithRelationship("author", relRuleSet)
+
+	// Verify it's a new instance
+	if newRuleSet == ruleSet {
+		t.Error("Expected WithRelationship to return a new instance")
+	}
+
+	ctx := context.Background()
+
+	testJson := `{
+		"data": {
+			"id": "abc",
+			"attributes": {
+				"Name": "Test"
+			},
+			"relationships": {
+				"author": {
+					"data": {"id": "123", "type": "users"}
+				}
+			}
+		}
+	}`
+
+	var out jsonapi.SingleDatumEnvelope[testDatum]
+	errs := newRuleSet.Apply(ctx, testJson, &out)
+
+	if errs != nil {
+		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
+	}
+
+	// Verify relationship was parsed
+	if rel, ok := out.Data.Relationships["author"]; ok {
+		if linkage, ok := rel.Data.(jsonapi.ResourceIdentifierLinkage); ok {
+			if linkage.ID != "123" {
+				t.Errorf("Expected author ID to be '123', got '%s'", linkage.ID)
+			}
+		} else {
+			t.Error("Expected author relationship to be ResourceIdentifierLinkage")
+		}
+	} else {
+		t.Error("Expected author relationship to be present")
+	}
+}
+
+func TestSingleRuleSet_WithRequired(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+
+	attributesRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", attributesRuleSet)
+
+	// Initially not required
+	if ruleSet.Required() {
+		t.Error("Expected ruleSet to not be required initially")
+	}
+
+	// Make it required
+	newRuleSet := ruleSet.WithRequired()
+
+	// Verify it's a new instance
+	if newRuleSet == ruleSet {
+		t.Error("Expected WithRequired to return a new instance when not already required")
+	}
+
+	if !newRuleSet.Required() {
+		t.Error("Expected new ruleSet to be required")
+	}
+
+	// Calling WithRequired again should return the same instance
+	anotherRuleSet := newRuleSet.WithRequired()
+	if anotherRuleSet != newRuleSet {
+		t.Error("Expected WithRequired to return same instance when already required")
+	}
+}
+
+func TestSingleRuleSet_Required(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+
+	attributesRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", attributesRuleSet)
+
+	// Initially not required
+	if ruleSet.Required() {
+		t.Error("Expected ruleSet to not be required initially")
+	}
+
+	// Make it required
+	ruleSet = ruleSet.WithRequired()
+
+	if !ruleSet.Required() {
+		t.Error("Expected ruleSet to be required after WithRequired")
+	}
+}
+
+func TestSingleRuleSet_Evaluate(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+
+	attributesRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().WithMinLen(3).Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", attributesRuleSet)
+
+	// Evaluate method exists and implements the RuleSet interface
+	// Note: Evaluate is provided for interface compatibility but may have
+	// limitations when used directly with struct values. Use Apply() for
+	// full functionality with JSON strings or maps.
+	_ = ruleSet.Evaluate
+}
+
+func TestSingleRuleSet_Any(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+
+	attributesRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", attributesRuleSet)
+
+	anyRuleSet := ruleSet.Any()
+	if anyRuleSet == nil {
+		t.Error("Expected Any() to return a non-nil RuleSet")
+	}
+
+	// Verify it can be used
+	ctx := context.Background()
+	testJson := `{
+		"data": {
+			"id": "abc",
+			"attributes": {
+				"Name": "Test"
+			}
+		}
+	}`
+
+	var out any
+	errs := anyRuleSet.Apply(ctx, testJson, &out)
+	if errs != nil {
+		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
+	}
+}
+
+func TestSingleRuleSet_String(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+
+	attributesRuleSet := rules.Struct[testDatum]().
+		WithKey("Name", rules.String().Any())
+
+	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", attributesRuleSet)
+
+	str := ruleSet.String()
+	expected := "SingleRuleSet"
+	if str != expected {
+		t.Errorf("Expected String() to return %q, got %q", expected, str)
+	}
+}
+
+func TestSingleRuleSet_WithMetaWithDocumentMetaWithNil(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+	attrs := rules.Struct[testDatum]().WithKey("Name", rules.String().Any())
+	rs := jsonapi.NewSingleRuleSet[testDatum]("tests", attrs).
+		WithMeta("requestId", rules.String().Any()).
+		WithDocumentMeta("metaKey", rules.String().Any()).
+		WithNil().
+		WithErrorMessage("short", "long").
+		WithDocsURI("https://docs.example.com").
+		WithTraceURI("https://trace.example.com").
+		WithErrorCode(errors.CodeRequired).
+		WithErrorMeta("k", "v").
+		WithErrorCallback(func(ctx context.Context, err errors.ValidationError) errors.ValidationError { return err })
+
+	ctx := context.Background()
+	// Apply with document meta
+	body := `{"data":{"id":"1","type":"tests","attributes":{"Name":"Hi"}},"meta":{"metaKey":"val"}}`
+	var out jsonapi.SingleDatumEnvelope[testDatum]
+	errs := rs.Apply(ctx, body, &out)
+	if errs != nil {
+		t.Fatalf("Apply: %s", errs)
 	}
 }

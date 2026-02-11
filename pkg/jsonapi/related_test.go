@@ -89,3 +89,25 @@ func TestLinkageCollection(t *testing.T) {
 		t.Errorf("Expected value to be ResourceLinkageCollection")
 	}
 }
+
+func TestNilResourceLinkage_UnmarshalJSON(t *testing.T) {
+	var linkage jsonapi.NilResourceLinkage
+
+	// Test unmarshaling null
+	err := linkage.UnmarshalJSON([]byte("null"))
+	if err != nil {
+		t.Errorf("Unexpected error unmarshaling null: %v", err)
+	}
+
+	// Test unmarshaling empty JSON
+	err = linkage.UnmarshalJSON([]byte(""))
+	if err != nil {
+		t.Errorf("Unexpected error unmarshaling empty JSON: %v", err)
+	}
+
+	// Test unmarshaling any other value (should not error, just ignore)
+	err = linkage.UnmarshalJSON([]byte(`{"id": "123"}`))
+	if err != nil {
+		t.Errorf("Unexpected error unmarshaling other JSON: %v", err)
+	}
+}

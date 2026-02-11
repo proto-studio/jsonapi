@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON:API Demo – Stores & Pets</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>JSON:API Demo</h1>
+    <p class="subtitle">Stores and Pets with validation (run server on :8080, this UI on :8081)</p>
+  </header>
+
+  <main>
+    <section id="stores-section">
+      <h2>Stores</h2>
+      <div class="panel">
+        <h3>List</h3>
+        <button type="button" id="stores-refresh">Refresh</button>
+        <div id="stores-list" class="list"></div>
+        <div id="stores-errors" class="errors"></div>
+      </div>
+      <div class="panel">
+        <h3 id="store-form-title">Create store</h3>
+        <form id="store-form">
+          <input type="hidden" id="store-id" name="id">
+          <div class="field">
+            <label for="store-name">Name</label>
+            <input type="text" id="store-name" name="name" maxlength="100" placeholder="1–100 chars">
+            <span class="field-error" id="store-name-error"></span>
+          </div>
+          <div class="field">
+            <label for="store-address">Address</label>
+            <input type="text" id="store-address" name="address" maxlength="200" placeholder="Optional, max 200 chars">
+            <span class="field-error" id="store-address-error"></span>
+          </div>
+          <button type="submit" id="store-submit">Create</button>
+          <button type="button" id="store-cancel" class="secondary" style="display:none">Cancel</button>
+        </form>
+        <div id="store-form-errors" class="errors"></div>
+      </div>
+    </section>
+
+    <section id="pets-section">
+      <h2>Pets</h2>
+      <div class="panel">
+        <h3>List</h3>
+        <button type="button" id="pets-refresh">Refresh</button>
+        <div id="pets-list" class="list"></div>
+        <div id="pets-errors" class="errors"></div>
+      </div>
+      <div class="panel">
+        <h3 id="pet-form-title">Create pet</h3>
+        <form id="pet-form">
+          <input type="hidden" id="pet-id" name="id">
+          <div class="field">
+            <label for="pet-name">Name</label>
+            <input type="text" id="pet-name" name="name" maxlength="80" placeholder="1–80 chars">
+            <span class="field-error" id="pet-name-error"></span>
+          </div>
+          <div class="field">
+            <label for="pet-species">Species</label>
+            <select id="pet-species" name="species">
+              <option value="">Choose…</option>
+              <option value="dog">Dog</option>
+              <option value="cat">Cat</option>
+              <option value="bird">Bird</option>
+            </select>
+            <span class="field-error" id="pet-species-error"></span>
+          </div>
+          <div class="field">
+            <label for="pet-store">Store</label>
+            <select id="pet-store" name="store_id">
+              <option value="">— None —</option>
+            </select>
+            <span class="field-error" id="pet-store-error"></span>
+          </div>
+          <button type="submit" id="pet-submit">Create</button>
+          <button type="button" id="pet-cancel" class="secondary" style="display:none">Cancel</button>
+        </form>
+        <div id="pet-form-errors" class="errors"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

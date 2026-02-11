@@ -15,7 +15,7 @@ type httpMethodRule[T any, TK comparable] struct {
 
 // Evaluate returns an error if the method in the context is not one of the specified methods.
 // If no method is specified in the context, it will always return nil.
-func (rule *httpMethodRule[T, TK]) Evaluate(ctx context.Context, value T) errors.ValidationErrorCollection {
+func (rule *httpMethodRule[T, TK]) Evaluate(ctx context.Context, value T) errors.ValidationError {
 	method := MethodFromContext(ctx)
 
 	for _, allowedMethod := range rule.methods {
@@ -24,13 +24,17 @@ func (rule *httpMethodRule[T, TK]) Evaluate(ctx context.Context, value T) errors
 		}
 	}
 
-	return errors.Collection(
-		errors.Errorf(errors.CodePattern, ctx, "HTTP method must be one of %v", rule.methods),
-	)
+	return errors.Errorf(errors.CodePattern, ctx, "Invalid HTTP method", "HTTP method must be one of %v", rule.methods)
 }
 
 // Conflict returns true for any maximum rule.
 func (rule *httpMethodRule[T, TK]) Conflict(x rules.Rule[T]) bool {
+	_, ok := x.(*httpMethodRule[T, TK])
+	return ok
+}
+
+// Replaces returns true if this rule should replace the other rule.
+func (rule *httpMethodRule[T, TK]) Replaces(x rules.Rule[T]) bool {
 	_, ok := x.(*httpMethodRule[T, TK])
 	return ok
 }
@@ -53,14 +57,12 @@ func HTTPMethodRule[T any, TK comparable](methods ...string) *httpMethodRule[T, 
 
 // IndexRule creates a new Rule that checks if the request is an index request.
 func IndexRule[T any, TK comparable]() rules.Rule[T] {
-	return rules.RuleFunc[T](func(ctx context.Context, value T) errors.ValidationErrorCollection {
+	return rules.RuleFunc[T](func(ctx context.Context, value T) errors.ValidationError {
 		method := MethodFromContext(ctx)
 		id := IdFromContext(ctx)
 
 		if method != "" && id != "" {
-			return errors.Collection(
-				errors.Errorf(errors.CodeForbidden, ctx, "Value is only allowed on index requests"),
-			)
+			return errors.Errorf(errors.CodeForbidden, ctx, "Index request required", "Value is only allowed on index requests")
 		}
 
 		return nil

@@ -19,33 +19,38 @@ type FullLink struct {
 	HrefLang    string         `json:"hreflang,omitempty" validate:"hreflang"` // TODO: this can also be an array of strings
 }
 
+// Href returns the link URL for a FullLink.
 func (link *FullLink) Href() string {
 	return link.HrefValue
 }
 
 type StringLink string
 
+// Href returns the link URL for a StringLink.
 func (str StringLink) Href() string {
 	return string(str)
 }
 
 type NilLink struct{}
 
+// Href returns empty string for NilLink.
 func (NilLink) Href() string {
 	return ""
 }
 
+// MarshalJSON implements json.Marshaler for NilLink and returns the JSON null literal.
 func (NilLink) MarshalJSON() ([]byte, error) {
 	return []byte("null"), nil
 }
 
+// UnmarshalJSON implements json.Unmarshaler for NilLink and accepts any input.
 func (NilLink) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
 type Links map[string]Link
 
-// UnmarshalJSON custom unmarshaller for the Links map
+// UnmarshalJSON implements json.Unmarshaler for Links, supporting string and object link values.
 func (links *Links) UnmarshalJSON(data []byte) error {
 	// Create a temporary map to hold the raw JSON data
 	tempMap := make(map[string]json.RawMessage)

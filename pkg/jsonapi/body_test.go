@@ -131,6 +131,108 @@ func TestMarshalJSON(t *testing.T) {
 				"type":"example"
 			}`,
 		},
+		{
+			name: "Datum with Relationships and Fields filtering",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "127",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Relationships: map[string]jsonapi.Relationship{
+					"author": {
+						Data: jsonapi.ResourceIdentifierLinkage{
+							ID:   "456",
+							Type: "users",
+						},
+					},
+					"comments": {
+						Data: jsonapi.ResourceLinkageCollection{
+							{ID: "789", Type: "comments"},
+						},
+					},
+				},
+				Fields: jsonapi.NewFieldList("name", "author"),
+			},
+			expected: `{
+				"id":"127",
+				"type":"example",
+				"attributes":{"name":"John Doe"},
+				"relationships":{"author":{"data":{"id":"456","type":"users"}}}
+			}`,
+		},
+		{
+			name: "Datum with Links and Meta",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "128",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Links: jsonapi.Links{
+					"self": jsonapi.StringLink("http://example.com/128"),
+				},
+				Meta: map[string]any{
+					"version": "1.0",
+				},
+			},
+			expected: `{
+				"id":"128",
+				"type":"example",
+				"attributes":{"name":"John Doe","email":"john.doe@example.com","age":30},
+				"links":{"self":"http://example.com/128"},
+				"meta":{"version":"1.0"}
+			}`,
+		},
+		{
+			name: "Datum[map[string]any] with Fields filtering",
+			datum: jsonapi.Datum[map[string]any]{
+				ID:   "129",
+				Type: "example",
+				Attributes: map[string]any{
+					"name":  "Alice",
+					"email": "alice@example.com",
+					"age":   25,
+				},
+				Fields: jsonapi.NewFieldList("name", "age"),
+			},
+			expected: `{
+				"id":"129",
+				"type":"example",
+				"attributes":{"name":"Alice","age":25}
+			}`,
+		},
+		{
+			name: "Datum with Fields filtering that excludes all attributes",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "130",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Fields:     jsonapi.NewFieldList("nonexistent"),
+			},
+			expected: `{
+				"id":"130",
+				"type":"example"
+			}`,
+		},
+		{
+			name: "Datum with Relationships but Fields filters them out",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "131",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Relationships: map[string]jsonapi.Relationship{
+					"author": {
+						Data: jsonapi.ResourceIdentifierLinkage{
+							ID:   "456",
+							Type: "users",
+						},
+					},
+				},
+				Fields: jsonapi.NewFieldList("name"), // Doesn't include "author"
+			},
+			expected: `{
+				"id":"131",
+				"type":"example",
+				"attributes":{"name":"John Doe"}
+			}`,
+		},
 	}
 
 	for _, tt := range tests {

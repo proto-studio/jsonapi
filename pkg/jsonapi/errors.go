@@ -1,6 +1,81 @@
 package jsonapi
 
-// Error represents the main error structure.
+import (
+	"strings"
+
+	"proto.zip/studio/validate/pkg/errors"
+)
+
+// ErrorSourceKind is the type of JSON:API error source (pointer, parameter, or header).
+type ErrorSourceKind string
+
+const (
+	// SourcePointer is for body/document errors (JSON Pointer to the value in the request document).
+	SourcePointer ErrorSourceKind = "pointer"
+	// SourceParameter is for query string errors (URI query parameter name).
+	SourceParameter ErrorSourceKind = "parameter"
+	// SourceHeader is for request header errors (header name).
+	SourceHeader ErrorSourceKind = "header"
+)
+
+// jsonAPIErrorWrapper wraps *Error to implement errors.ValidationError without
+// method/field name conflicts (Error has fields Code and Meta).
+type jsonAPIErrorWrapper struct{ err *Error }
+
+var _ errors.ValidationError = (*jsonAPIErrorWrapper)(nil)
+
+// JSONAPIError returns the underlying JSON:API Error for serialization.
+func (w *jsonAPIErrorWrapper) JSONAPIError() *Error { return w.err }
+
+func (w *jsonAPIErrorWrapper) Code() errors.ErrorCode { return errors.ErrorCode(w.err.Code) }
+func (w *jsonAPIErrorWrapper) Path() string {
+	if w.err.Source == nil {
+		return ""
+	}
+	if w.err.Source.Pointer != "" {
+		return w.err.Source.Pointer
+	}
+	if w.err.Source.Parameter != "" {
+		return w.err.Source.Parameter
+	}
+	return w.err.Source.Header
+}
+func (w *jsonAPIErrorWrapper) PathAs(errors.PathSerializer) string { return w.Path() }
+func (w *jsonAPIErrorWrapper) Error() string                         { return w.err.Detail }
+func (w *jsonAPIErrorWrapper) ShortError() string                    { return w.err.Title }
+func (w *jsonAPIErrorWrapper) DocsURI() string {
+	if w.err.Links != nil {
+		return w.err.Links.About
+	}
+	return ""
+}
+func (w *jsonAPIErrorWrapper) TraceURI() string {
+	if w.err.Links != nil {
+		return w.err.Links.Type
+	}
+	return ""
+}
+func (w *jsonAPIErrorWrapper) Meta() map[string]any {
+	if w.err.Meta == nil {
+		return nil
+	}
+	return map[string]any(*w.err.Meta)
+}
+func (w *jsonAPIErrorWrapper) Params() []any { return nil }
+func (w *jsonAPIErrorWrapper) Internal() bool {
+	return errors.DefaultDict().ErrorType(errors.ErrorCode(w.err.Code)) == errors.ErrorTypeInternal
+}
+func (w *jsonAPIErrorWrapper) Validation() bool {
+	return errors.DefaultDict().ErrorType(errors.ErrorCode(w.err.Code)) == errors.ErrorTypeValidation
+}
+func (w *jsonAPIErrorWrapper) Permission() bool {
+	return errors.DefaultDict().ErrorType(errors.ErrorCode(w.err.Code)) == errors.ErrorTypePermission
+}
+
+// Unwrap returns nil (single error, no wrapped errors). Required by ValidationError.
+func (w *jsonAPIErrorWrapper) Unwrap() []error { return nil }
+
+// Error represents the main error structure for JSON:API responses.
 type Error struct {
 	// ID is a unique identifier for this particular occurrence of the problem.
 	ID string `json:"id,omitempty"`
@@ -57,4 +132,97 @@ type MetaInfo map[string]any
 // ErrorResponse represents the structure of the error response.
 type ErrorResponse struct {
 	Errors []Error `json:"errors,omitempty"`
+}
+
+// ValidationError interface methods (errors.ValidationError).
+
+// jsonAPIErrorHolder is used to extract *Error from our wrapper in ErrorsFromCollection.
+type jsonAPIErrorHolder interface {
+	JSONAPIError() *Error
+}
+
+// jsonPointerSerializer is used for source.pointer so it follows RFC 6901 (JSON Pointer) as required by JSON:API.
+var jsonPointerSerializer errors.JSONPointerSerializer
+
+// ErrorFromValidationError builds a JSON:API Error from a ValidationError.
+// kind selects which source field to set: SourcePointer (body), SourceParameter (query), or SourceHeader.
+// When kind is SourcePointer, the path is serialized with JSON Pointer (RFC 6901) per JSON:API; other kinds use the default path.
+func ErrorFromValidationError(ve errors.ValidationError, kind ErrorSourceKind) *Error {
+	e := &Error{
+		Status: "422",
+		Code:  string(ve.Code()),
+		Title: ve.ShortError(),
+		Detail: ve.Error(),
+	}
+	// Only set Links when at least one URI is non-empty; only include non-empty values so serialization omits empty strings.
+	if docs, trace := ve.DocsURI(), ve.TraceURI(); docs != "" || trace != "" {
+		e.Links = &ErrorLinks{About: docs, Type: trace}
+	}
+	if m := ve.Meta(); len(m) > 0 {
+		meta := make(MetaInfo, len(m))
+		for k, v := range m {
+			meta[k] = v
+		}
+		e.Meta = &meta
+	}
+	var path string
+	switch kind {
+	case SourcePointer:
+		// JSON:API source.pointer MUST be a JSON Pointer [RFC6901].
+		path = ve.PathAs(jsonPointerSerializer)
+	default:
+		path = ve.Path()
+	}
+	if path != "" {
+		e.Source = &Source{}
+		switch kind {
+		case SourcePointer:
+			e.Source.Pointer = path
+		case SourceParameter:
+			e.Source.Parameter = path
+		case SourceHeader:
+			// JSON:API source.header is the header name; path may have a leading slash from serialization
+			e.Source.Header = strings.TrimPrefix(path, "/")
+		}
+	}
+	return e
+}
+
+// ToJSONAPIErrors wraps each error in err as a JSON:API Error and returns a single ValidationError.
+// kind selects the source field: SourcePointer (body), SourceParameter (query), or SourceHeader.
+func ToJSONAPIErrors(err errors.ValidationError, kind ErrorSourceKind) errors.ValidationError {
+	unwrapped := errors.Unwrap(err)
+	if len(unwrapped) == 0 {
+		return nil
+	}
+	var out []error
+	for _, e := range unwrapped {
+		ve := e.(errors.ValidationError)
+		out = append(out, &jsonAPIErrorWrapper{err: ErrorFromValidationError(ve, kind)})
+	}
+	return errors.Join(out...)
+}
+
+// ErrorsFromValidationError builds a slice of JSON:API Error for response bodies.
+// It uses errors.Unwrap() to obtain all errors (not just the first).
+// kind is only used when converting non-JSON:API ValidationErrors.
+// Any unwrapped error that does not implement ValidationError is skipped.
+func ErrorsFromValidationError(err errors.ValidationError, kind ErrorSourceKind) []Error {
+	unwrapped := errors.Unwrap(err)
+	if len(unwrapped) == 0 {
+		return nil
+	}
+	out := make([]Error, 0, len(unwrapped))
+	for _, e := range unwrapped {
+		ve, ok := e.(errors.ValidationError)
+		if !ok {
+			continue
+		}
+		if h, ok := ve.(jsonAPIErrorHolder); ok {
+			out = append(out, *h.JSONAPIError())
+		} else {
+			out = append(out, *ErrorFromValidationError(ve, kind))
+		}
+	}
+	return out
 }
