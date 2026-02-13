@@ -144,12 +144,28 @@ type jsonAPIErrorHolder interface {
 // jsonPointerSerializer is used for source.pointer so it follows RFC 6901 (JSON Pointer) as required by JSON:API.
 var jsonPointerSerializer errors.JSONPointerSerializer
 
+// queryParamName returns the JSON:API source.parameter value (query param name only).
+// Path from validation may be "query[key]" or "/query[key]" (e.g. "query[filter]", "query[page[size]]"); we return just the param name.
+func queryParamName(path string) string {
+	path = strings.TrimPrefix(path, "/")
+	const prefix = "query["
+	if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, "]") && len(path) > len(prefix)+1 {
+		return path[len(prefix) : len(path)-1]
+	}
+	return path
+}
+
 // ErrorFromValidationError builds a JSON:API Error from a ValidationError.
 // kind selects which source field to set: SourcePointer (body), SourceParameter (query), or SourceHeader.
 // When kind is SourcePointer, the path is serialized with JSON Pointer (RFC 6901) per JSON:API; other kinds use the default path.
+// Query string errors use HTTP status 400 per JSON:API; body validation errors use 422.
 func ErrorFromValidationError(ve errors.ValidationError, kind ErrorSourceKind) *Error {
+	status := "422"
+	if kind == SourceParameter {
+		status = "400"
+	}
 	e := &Error{
-		Status: "422",
+		Status: status,
 		Code:  string(ve.Code()),
 		Title: ve.ShortError(),
 		Detail: ve.Error(),
@@ -179,7 +195,8 @@ func ErrorFromValidationError(ve errors.ValidationError, kind ErrorSourceKind) *
 		case SourcePointer:
 			e.Source.Pointer = path
 		case SourceParameter:
-			e.Source.Parameter = path
+			// JSON:API source.parameter is the query parameter name only, not a path.
+			e.Source.Parameter = queryParamName(path)
 		case SourceHeader:
 			// JSON:API source.header is the header name; path may have a leading slash from serialization
 			e.Source.Header = strings.TrimPrefix(path, "/")

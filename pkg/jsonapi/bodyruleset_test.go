@@ -29,15 +29,14 @@ func TestSingleDatum(t *testing.T) {
 
 	ctx := context.Background()
 
-	var test jsonapi.SingleDatumEnvelope[testDatum]
-	errs := ruleSet.Apply(ctx, `{
+	test, errs := ruleSet.Apply(ctx, `{
 	  "data": {
 			"id": "abc",
 			"attributes": {
 				"Name": "My Test"
 			}
 		}
-	}`, &test)
+	}`)
 
 	if errs != nil {
 		t.Fatalf("Expected errors to be nil, got: %s", errs.Error())
@@ -54,7 +53,7 @@ func TestSingleDatum(t *testing.T) {
 	}
 
 	// Type matches expected
-	errs = ruleSet.Apply(ctx, `{
+	test, errs = ruleSet.Apply(ctx, `{
 	  "data": {
 			"id": "abc",
 			"type": "tests",
@@ -62,7 +61,7 @@ func TestSingleDatum(t *testing.T) {
 				"Name": "My Test"
 			}
 		}
-	}`, &test)
+	}`)
 
 	if errs != nil {
 		t.Errorf("Expected errors on matching type to be nil, got: %s", errs.Error())
@@ -91,8 +90,7 @@ func TestWithUnknownRelationshipsBody(t *testing.T) {
     }
 	}`
 
-	var out jsonapi.SingleDatumEnvelope[map[string]any]
-	errs := ruleSet.Apply(ctx, testJson, &out)
+	_, errs := ruleSet.Apply(ctx, testJson)
 
 	if errs == nil {
 		t.Errorf("Expected errors to not be nil")
@@ -100,8 +98,7 @@ func TestWithUnknownRelationshipsBody(t *testing.T) {
 
 	// ID linkage
 	ruleSet = ruleSet.WithUnknownRelationships()
-	out = jsonapi.SingleDatumEnvelope[map[string]any]{}
-	errs = ruleSet.Apply(ctx, testJson, &out)
+	out, errs := ruleSet.Apply(ctx, testJson)
 
 	if errs != nil {
 		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
@@ -139,8 +136,7 @@ func TestSingleDatum_AttributeFields(t *testing.T) {
 		}
 	}`
 
-	var testFields jsonapi.SingleDatumEnvelope[testDatum]
-	errs := ruleSet.Apply(ctx, testJson, &testFields)
+	testFields, errs := ruleSet.Apply(ctx, testJson)
 
 	if errs != nil {
 		t.Fatalf("Expected errors to be nil, got: %s", errs.Error())
@@ -202,8 +198,7 @@ func TestSingleRuleSet_WithRelationship(t *testing.T) {
 		}
 	}`
 
-	var out jsonapi.SingleDatumEnvelope[testDatum]
-	errs := newRuleSet.Apply(ctx, testJson, &out)
+	out, errs := newRuleSet.Apply(ctx, testJson)
 
 	if errs != nil {
 		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
@@ -323,8 +318,7 @@ func TestSingleRuleSet_Any(t *testing.T) {
 		}
 	}`
 
-	var out any
-	errs := anyRuleSet.Apply(ctx, testJson, &out)
+	_, errs := anyRuleSet.Apply(ctx, testJson)
 	if errs != nil {
 		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
 	}
@@ -366,8 +360,7 @@ func TestSingleRuleSet_WithMetaWithDocumentMetaWithNil(t *testing.T) {
 	ctx := context.Background()
 	// Apply with document meta
 	body := `{"data":{"id":"1","type":"tests","attributes":{"Name":"Hi"}},"meta":{"metaKey":"val"}}`
-	var out jsonapi.SingleDatumEnvelope[testDatum]
-	errs := rs.Apply(ctx, body, &out)
+	_, errs := rs.Apply(ctx, body)
 	if errs != nil {
 		t.Fatalf("Apply: %s", errs)
 	}

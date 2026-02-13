@@ -13,7 +13,7 @@ func TestHeaderRuleSet_ContentTypeRequired(t *testing.T) {
 	rs := Headers()
 	ctx := context.Background()
 	empty := http.Header{}
-	err := rs.Apply(ctx, empty, nil)
+	_, err := rs.Apply(ctx, empty)
 	if err == nil {
 		t.Fatal("expected error when Content-Type missing")
 	}
@@ -31,7 +31,7 @@ func TestHeaderRuleSet_ContentTypeWrongMediaType(t *testing.T) {
 	ctx := context.Background()
 	h := http.Header{}
 	h.Set("Content-Type", "application/json")
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err == nil {
 		t.Fatal("expected error for wrong media type")
 	}
@@ -46,7 +46,7 @@ func TestHeaderRuleSet_ContentTypeValid(t *testing.T) {
 	ctx := context.Background()
 	h := http.Header{}
 	h.Set("Content-Type", MediaTypeJSONAPI)
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err != nil {
 		t.Fatalf("expected no error for valid Content-Type: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestHeaderRuleSet_ContentTypeWithExtAndProfile(t *testing.T) {
 	ctx := context.Background()
 	h := http.Header{}
 	h.Set("Content-Type", `application/vnd.api+json; ext="https://jsonapi.org/ext/version"; profile="https://example.com/profile"`)
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err != nil {
 		t.Fatalf("expected no error for valid Content-Type with ext and profile: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestHeaderRuleSet_ContentTypeDisallowedParam(t *testing.T) {
 	ctx := context.Background()
 	h := http.Header{}
 	h.Set("Content-Type", "application/vnd.api+json; charset=utf-8")
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err == nil {
 		t.Fatal("expected error for disallowed charset parameter")
 	}
@@ -91,13 +91,13 @@ func TestHeaderRuleSet_WithExt(t *testing.T) {
 
 	h := http.Header{}
 	h.Set("Content-Type", `application/vnd.api+json; ext="https://jsonapi.org/ext/version"`)
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err != nil {
 		t.Fatalf("expected no error: %v", err)
 	}
 
 	h.Set("Content-Type", `application/vnd.api+json; ext="https://other.org/ext"`)
-	err = rs.Apply(ctx, h, nil)
+	_, err = rs.Apply(ctx, h)
 	if err == nil {
 		t.Fatal("expected error for disallowed ext")
 	}
@@ -115,13 +115,13 @@ func TestHeaderRuleSet_WithProfile(t *testing.T) {
 
 	h := http.Header{}
 	h.Set("Content-Type", `application/vnd.api+json; profile="https://example.com/profile"`)
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err != nil {
 		t.Fatalf("expected no error: %v", err)
 	}
 
 	h.Set("Content-Type", `application/vnd.api+json; profile="https://other.com/profile"`)
-	err = rs.Apply(ctx, h, nil)
+	_, err = rs.Apply(ctx, h)
 	if err == nil {
 		t.Fatal("expected error for disallowed profile")
 	}
@@ -134,13 +134,13 @@ func TestHeaderRuleSet_WithHeader(t *testing.T) {
 	h := http.Header{}
 	h.Set("Content-Type", MediaTypeJSONAPI)
 	h.Set("X-Request-Id", "abc-123")
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err != nil {
 		t.Fatalf("expected no error: %v", err)
 	}
 
 	h.Set("X-Request-Id", "")
-	err = rs.Apply(ctx, h, nil)
+	_, err = rs.Apply(ctx, h)
 	if err == nil {
 		t.Fatal("expected error for empty X-Request-Id")
 	}
@@ -159,7 +159,7 @@ func TestHeaderRuleSet_ErrorsUseSourceHeader(t *testing.T) {
 	h := http.Header{}
 	h.Set("Content-Type", MediaTypeJSONAPI)
 	h.Set("Accept", "short")
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
@@ -184,7 +184,7 @@ func TestHeaderRuleSet_Apply_InputJsonAPIHeader(t *testing.T) {
 
 	// *Header input: valid (no ext/profile)
 	in := &Header{Version: Version_1_1}
-	err := rs.Apply(ctx, in, nil)
+	_, err := rs.Apply(ctx, in)
 	if err != nil {
 		t.Fatalf("expected no error for *Header input: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestHeaderRuleSet_Apply_InputJsonAPIHeader(t *testing.T) {
 		Ext:     []Extension{{URI: "https://jsonapi.org/ext/version"}},
 		Profile: []Profile{{URI: "https://example.com/profile"}},
 	}
-	err = rs.Apply(ctx, inVal, nil)
+	_, err = rs.Apply(ctx, inVal)
 	if err != nil {
 		t.Fatalf("expected no error for Header input with ext/profile: %v", err)
 	}
@@ -210,11 +210,11 @@ func TestHeaderRuleSet_Apply_OutputJsonAPIHeader(t *testing.T) {
 
 	h := http.Header{}
 	h.Set("Content-Type", `application/vnd.api+json; ext="https://jsonapi.org/ext/version"; profile="https://example.com/profile"`)
-	var out Header
-	err := rs.Apply(ctx, h, &out)
+	headers, err := rs.Apply(ctx, h)
 	if err != nil {
 		t.Fatalf("expected no error: %v", err)
 	}
+	out := *httpHeaderToHeader(headers)
 	if out.Version != Version_1_1 {
 		t.Errorf("expected Version %q, got %q", Version_1_1, out.Version)
 	}
@@ -235,11 +235,11 @@ func TestHeaderRuleSet_Apply_HeaderRoundtrip(t *testing.T) {
 		Ext:     []Extension{{URI: "https://jsonapi.org/ext/version"}},
 		Profile: []Profile{{URI: "https://example.com/profile"}},
 	}
-	var out Header
-	err := rs.Apply(ctx, in, &out)
+	headers, err := rs.Apply(ctx, in)
 	if err != nil {
 		t.Fatalf("expected no error: %v", err)
 	}
+	out := *httpHeaderToHeader(headers)
 	if out.Version != Version_1_1 {
 		t.Errorf("expected Version %q, got %q", Version_1_1, out.Version)
 	}
@@ -255,7 +255,7 @@ func TestHeaderRuleSet_WithContentRequired(t *testing.T) {
 	rs := Headers().WithContentRequired(false)
 	ctx := context.Background()
 	empty := http.Header{}
-	err := rs.Apply(ctx, empty, nil)
+	_, err := rs.Apply(ctx, empty)
 	if err != nil {
 		t.Fatalf("WithContentRequired(false): expected no error when Content-Type missing, got %v", err)
 	}
@@ -268,7 +268,7 @@ func TestHeaderRuleSet_Apply_MapStringSlice(t *testing.T) {
 	rs := Headers()
 	ctx := context.Background()
 	h := map[string][]string{"Content-Type": {MediaTypeJSONAPI}}
-	err := rs.Apply(ctx, h, nil)
+	_, err := rs.Apply(ctx, h)
 	if err != nil {
 		t.Fatalf("Apply with map[string][]string: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestHeaderRuleSet_Apply_MapStringSlice(t *testing.T) {
 func TestHeaderRuleSet_Apply_InvalidType(t *testing.T) {
 	rs := Headers()
 	ctx := context.Background()
-	err := rs.Apply(ctx, 12345, nil)
+	_, err := rs.Apply(ctx, 12345)
 	if err == nil {
 		t.Fatal("expected error for invalid input type")
 	}

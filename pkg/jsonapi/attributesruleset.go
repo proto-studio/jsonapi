@@ -132,8 +132,8 @@ func (a *AttributesRuleSet) WithErrorCallback(fn errors.ErrorCallback) *Attribut
 }
 
 // Apply implements rules.RuleSet[map[string]any].
-func (a *AttributesRuleSet) Apply(ctx context.Context, input, output any) errors.ValidationError {
-	return a.inner.Apply(ctx, input, output)
+func (a *AttributesRuleSet) Apply(ctx context.Context, input any) (map[string]any, errors.ValidationError) {
+	return a.inner.Apply(ctx, input)
 }
 
 // Evaluate implements rules.RuleSet[map[string]any].

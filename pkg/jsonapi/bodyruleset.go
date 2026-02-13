@@ -160,7 +160,8 @@ func (ruleSet *SingleRuleSet[T]) WithErrorCallback(fn errors.ErrorCallback) *Sin
 }
 
 // Apply decodes and validates the input (string or map) into the output envelope.
-func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationError {
+func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input any) (SingleDatumEnvelope[T], errors.ValidationError) {
+	var zero SingleDatumEnvelope[T]
 	if ruleSet.errorConfig != nil {
 		ctx = errors.WithErrorConfig(ctx, ruleSet.errorConfig)
 	}
@@ -171,7 +172,7 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) e
 	var decodedInput any
 	if inputStr, ok := input.(string); ok {
 		if err := json.Unmarshal([]byte(inputStr), &decodedInput); err != nil {
-			return ToJSONAPIErrors(errors.Errorf(errors.CodeEncoding, ctx, "Invalid JSON encoding", "Body must be Json encoded"), SourcePointer)
+			return zero, ToJSONAPIErrors(errors.Errorf(errors.CodeEncoding, ctx, "Invalid JSON encoding", "Body must be Json encoded"), SourcePointer)
 		}
 		input = decodedInput
 	} else if inputMap, ok := input.(map[string]any); ok {
@@ -185,9 +186,7 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) e
 			// Return zero value for nil - meta-only documents are valid
 			return Datum[T]{}, nil
 		}
-		var out Datum[T]
-		errs := ruleSet.datumRuleSet.Apply(ctx, value, &out)
-		return out, errs
+		return ruleSet.datumRuleSet.Apply(ctx, value)
 	})
 	bodyValidator = bodyValidator.WithKey("data", dataRuleSet.Any())
 	bodyValidator = bodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
@@ -199,10 +198,9 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) e
 	bodyValidator = bodyValidator.WithDynamicBucket(atMembersKeyRule, "AtMembers")
 	bodyValidator = bodyValidator.WithDynamicBucket(extKeyRule, "ExtensionMembers")
 
-	err := bodyValidator.Apply(ctx, input, output)
-
+	envelope, err := bodyValidator.Apply(ctx, input)
 	if err != nil {
-		return ToJSONAPIErrors(err, SourcePointer)
+		return zero, ToJSONAPIErrors(err, SourcePointer)
 	}
 
 	if decodedInput != nil {
@@ -216,21 +214,18 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input, output any) e
 				for key := range attributes {
 					fields[key] = true
 				}
-
-				if outputEnvelope, ok := output.(*SingleDatumEnvelope[T]); ok {
-					outputEnvelope.Data.Fields = fields
-				}
+				envelope.Data.Fields = fields
 			}
 		}
 	}
 
-	return nil
+	return envelope, nil
 }
 
 // Evaluate validates a SingleDatumEnvelope value and returns any validation errors.
 func (ruleSet *SingleRuleSet[T]) Evaluate(ctx context.Context, value SingleDatumEnvelope[T]) errors.ValidationError {
-	var out SingleDatumEnvelope[T]
-	return ruleSet.Apply(ctx, value, &out)
+	_, err := ruleSet.Apply(ctx, value)
+	return err
 }
 
 // Any returns the rule set as rules.RuleSet[any] for use with generic validators.

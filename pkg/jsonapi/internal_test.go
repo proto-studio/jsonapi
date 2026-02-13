@@ -59,12 +59,12 @@ func TestRelationshipRuleSet_InterfaceMethods(t *testing.T) {
 func TestQueryParamAdapter(t *testing.T) {
 	ctx := context.Background()
 	adapter := &queryParamAdapter{inner: sortRuleSet.Any()}
-	var out []SortParam
-	errs := adapter.Apply(ctx, "-name", &out)
+	out, errs := adapter.Apply(ctx, "-name")
 	if errs != nil {
 		t.Fatalf("adapter Apply: %s", errs)
 	}
-	if len(out) != 1 || out[0].Field != "name" || !out[0].Descending {
+	outSlice := out.([]SortParam)
+	if len(outSlice) != 1 || outSlice[0].Field != "name" || !outSlice[0].Descending {
 		t.Errorf("expected [{name desc}], got %v", out)
 	}
 	_ = adapter.Evaluate(ctx, "x")
@@ -81,10 +81,9 @@ func TestQueryParamAdapter(t *testing.T) {
 func TestLinksRuleSet_LinkCast(t *testing.T) {
 	ctx := context.Background()
 	// linkCast with map (full link)
-	var out map[string]Link
-	errs := LinksRuleSet.Apply(ctx, map[string]any{
+	out, errs := LinksRuleSet.Apply(ctx, map[string]any{
 		"self": map[string]any{"href": "https://example.com"},
-	}, &out)
+	})
 	if errs != nil {
 		t.Fatalf("LinksRuleSet Apply with full link map: %s", errs)
 	}
@@ -92,8 +91,7 @@ func TestLinksRuleSet_LinkCast(t *testing.T) {
 		t.Errorf("expected href, got %v", out["self"])
 	}
 	// linkCast with invalid type
-	var out2 map[string]Link
-	errs = LinksRuleSet.Apply(ctx, map[string]any{"self": 123}, &out2)
+	_, errs = LinksRuleSet.Apply(ctx, map[string]any{"self": 123})
 	if errs == nil {
 		t.Error("expected error for invalid link type")
 	}

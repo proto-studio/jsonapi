@@ -28,49 +28,24 @@ func resourceLinkageCast(ctx context.Context, value any) (ResourceLinkage, error
 
 	v := reflect.ValueOf(value)
 	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
-		var out []ResourceIdentifierLinkage
-		errs := rules.Slice[ResourceIdentifierLinkage]().WithItemRuleSet(ResourceIdentifierLinkageRuleSet).Apply(ctx, value, &out)
+		out, errs := rules.Slice[ResourceIdentifierLinkage]().WithItemRuleSet(ResourceIdentifierLinkageRuleSet).Apply(ctx, value)
 		return ResourceLinkageCollection(out), errs
 	}
 
-	var out ResourceIdentifierLinkage
-	errs := ResourceIdentifierLinkageRuleSet.Apply(ctx, value, &out)
+	out, errs := ResourceIdentifierLinkageRuleSet.Apply(ctx, value)
 	return out, errs
 }
 
 // resourceLinkageRuleSetImpl is a custom rule set that handles nil properly
 type resourceLinkageRuleSetImpl struct{}
 
-// Apply validates input into a ResourceLinkage and writes the result to output; handles nil as NilResourceLinkage.
-func (r *resourceLinkageRuleSetImpl) Apply(ctx context.Context, input, output any) errors.ValidationError {
-	var result ResourceLinkage
-
+// Apply validates input into a ResourceLinkage and returns it; handles nil as NilResourceLinkage.
+func (r *resourceLinkageRuleSetImpl) Apply(ctx context.Context, input any) (ResourceLinkage, errors.ValidationError) {
 	// Handle nil specially - convert to NilResourceLinkage{}
 	if input == nil {
-		result = NilResourceLinkage{}
-	} else {
-		// For non-nil values, use the cast function
-		var errs errors.ValidationError
-		result, errs = resourceLinkageCast(ctx, input)
-		if errs != nil {
-			return errs
-		}
+		return NilResourceLinkage{}, nil
 	}
-
-	// Set the result using reflection to handle different output types
-	outputVal := reflect.ValueOf(output)
-	if outputVal.Kind() != reflect.Ptr {
-		return errors.Error(errors.CodeType, ctx, "*ResourceLinkage", reflect.TypeOf(output).String())
-	}
-
-	elem := outputVal.Elem()
-	if !elem.CanSet() {
-		return errors.Error(errors.CodeType, ctx, "ResourceLinkage", reflect.TypeOf(output).String())
-	}
-
-	// Set the result
-	elem.Set(reflect.ValueOf(result))
-	return nil
+	return resourceLinkageCast(ctx, input)
 }
 
 // Evaluate is not used for interface types and returns nil.
@@ -110,7 +85,7 @@ var ResourceIdentifierLinkageRuleSet rules.RuleSet[ResourceIdentifierLinkage] = 
 type relationshipRuleSetImpl struct{}
 
 // Apply validates a relationship object and handles null data by temporarily removing it for Struct validation.
-func (r *relationshipRuleSetImpl) Apply(ctx context.Context, input, output any) errors.ValidationError {
+func (r *relationshipRuleSetImpl) Apply(ctx context.Context, input any) (Relationship, errors.ValidationError) {
 	// Check if input has null data field
 	var hadNullData bool
 	if inputMap, ok := input.(map[string]any); ok {
@@ -120,33 +95,34 @@ func (r *relationshipRuleSetImpl) Apply(ctx context.Context, input, output any) 
 			delete(inputMap, "data")
 		}
 	}
-	
+
 	// Use Struct rule set for validation (without data field if it was null)
 	validator := rules.Struct[Relationship]().
 		WithKey("data", relationshipDataRuleSet.Any()).
 		WithKey("links", LinksRuleSet.Any()).
 		WithKey("meta", rules.StringMap[any]().WithUnknown().Any())
-	
-	errs := validator.Apply(ctx, input, output)
-	
+
+	rel, errs := validator.Apply(ctx, input)
+	if errs != nil {
+		return Relationship{}, errs
+	}
+
 	// After validation, if input had null data, set it to NilResourceLinkage{}
-	if errs == nil && hadNullData {
-		if relPtr, ok := output.(*Relationship); ok {
-			relPtr.Data = NilResourceLinkage{}
-		}
+	if hadNullData {
+		rel.Data = NilResourceLinkage{}
 		// Restore null in input map for potential future use
 		if inputMap, ok := input.(map[string]any); ok {
 			inputMap["data"] = nil
 		}
 	}
-	
-	return errs
+
+	return rel, nil
 }
 
 // Evaluate validates a Relationship value and returns any validation errors.
 func (r *relationshipRuleSetImpl) Evaluate(ctx context.Context, value Relationship) errors.ValidationError {
-	var out Relationship
-	return r.Apply(ctx, value, &out)
+	_, err := r.Apply(ctx, value)
+	return err
 }
 
 // Any returns the rule set as rules.RuleSet[any].
@@ -174,9 +150,7 @@ var relationshipDataRuleSet = rules.Interface[ResourceLinkage]().WithCast(func(c
 	if value == nil {
 		return NilResourceLinkage{}, nil
 	}
-	var out ResourceLinkage
-	errs := ResourceLinkageRuleSet.Apply(ctx, value, &out)
-	return out, errs
+	return ResourceLinkageRuleSet.Apply(ctx, value)
 })
 
 var RelationshipRuleSet rules.RuleSet[Relationship] = &relationshipRuleSetImpl{}

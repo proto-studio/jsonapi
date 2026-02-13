@@ -41,8 +41,7 @@ func TestSpecV1_1_DocumentStructure(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, docWithData, &envelope)
+	_, errs := ruleSet.Apply(ctx, docWithData)
 	if errs != nil {
 		t.Errorf("Document with data member should be valid: %s", errs)
 	}
@@ -55,8 +54,7 @@ func TestSpecV1_1_DocumentStructure(t *testing.T) {
 		}
 	}`
 
-	var metaEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, docWithMetaOnly, &metaEnvelope)
+	_, errs = ruleSet.Apply(ctx, docWithMetaOnly)
 	// Meta-only documents are valid per spec
 	if errs != nil {
 		t.Errorf("Meta-only document (spec allows this): %s", errs)
@@ -91,8 +89,7 @@ func TestSpecV1_1_ResourceObjects(t *testing.T) {
 		}
 	}`
 
-	var minimalEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, minimalResource, &minimalEnvelope)
+	_, errs := ruleSet.Apply(ctx, minimalResource)
 	if errs != nil {
 		t.Errorf("Minimal resource object (type and id only) should be valid: %s", errs)
 	}
@@ -122,8 +119,7 @@ func TestSpecV1_1_ResourceObjects(t *testing.T) {
 		}
 	}`
 
-	var fullEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, fullResource, &fullEnvelope)
+	_, errs = ruleSet.Apply(ctx, fullResource)
 	if errs != nil {
 		t.Errorf("Full resource object with all members should be valid: %s", errs)
 	}
@@ -141,8 +137,7 @@ func TestSpecV1_1_ResourceIdentifierObjects(t *testing.T) {
 		"id": "1"
 	}`
 
-	var linkage jsonapi.ResourceLinkage
-	errs := jsonapi.ResourceLinkageRuleSet.Apply(ctx, identifierWithId, &linkage)
+	_, errs := jsonapi.ResourceLinkageRuleSet.Apply(ctx, identifierWithId)
 	if errs != nil {
 		t.Errorf("Resource identifier with type and id should be valid: %s", errs)
 	}
@@ -153,8 +148,7 @@ func TestSpecV1_1_ResourceIdentifierObjects(t *testing.T) {
 		"lid": "local-1"
 	}`
 
-	var linkageWithLid jsonapi.ResourceLinkage
-	errs = jsonapi.ResourceLinkageRuleSet.Apply(ctx, identifierWithLid, &linkageWithLid)
+	_, errs = jsonapi.ResourceLinkageRuleSet.Apply(ctx, identifierWithLid)
 	if errs != nil {
 		t.Errorf("Resource identifier with type and lid should be valid: %s", errs)
 	}
@@ -163,7 +157,7 @@ func TestSpecV1_1_ResourceIdentifierObjects(t *testing.T) {
 	nullLinkage := `null`
 
 	var nullLink jsonapi.ResourceLinkage
-	errs = jsonapi.ResourceLinkageRuleSet.Apply(ctx, nullLinkage, &nullLink)
+	nullLink, errs = jsonapi.ResourceLinkageRuleSet.Apply(ctx, nullLinkage)
 	if errs != nil {
 		t.Errorf("Null resource linkage should be valid: %s", errs)
 	}
@@ -219,8 +213,7 @@ func TestSpecV1_1_CompoundDocuments(t *testing.T) {
 		]
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, compoundDoc, &envelope)
+	_, errs := ruleSet.Apply(ctx, compoundDoc)
 	if errs != nil {
 		t.Errorf("Compound document with included resources should be valid: %s", errs)
 	}
@@ -260,8 +253,7 @@ func TestSpecV1_1_MetaInformation(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, docWithMeta, &envelope)
+	_, errs := ruleSet.Apply(ctx, docWithMeta)
 	if errs != nil {
 		t.Errorf("Document with top-level meta should be valid: %s", errs)
 	}
@@ -280,8 +272,7 @@ func TestSpecV1_1_MetaInformation(t *testing.T) {
 		}
 	}`
 
-	var resourceEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, resourceWithMeta, &resourceEnvelope)
+	_, errs = ruleSet.Apply(ctx, resourceWithMeta)
 	if errs != nil {
 		t.Errorf("Resource object with meta member should be valid: %s", errs)
 	}
@@ -363,8 +354,7 @@ func TestSpecV1_1_JSONAPIObject(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, docWithJsonAPI, &envelope)
+	_, errs := ruleSet.Apply(ctx, docWithJsonAPI)
 	// jsonapi object is a top-level member
 	if errs != nil {
 		t.Errorf("Document with jsonapi object should be valid: %s", errs)
@@ -402,8 +392,7 @@ func TestSpecV1_1_MemberNames(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, validDoc, &envelope)
+	_, errs := ruleSet.Apply(ctx, validDoc)
 	if errs != nil {
 		t.Errorf("Document with various member names should be valid: %s", errs)
 	}
@@ -417,8 +406,7 @@ func TestSpecV1_1_QueryParameters(t *testing.T) {
 	// Fields parameter - sparse field sets
 	fieldsQuery := `fields[articles]=title,body&fields[people]=name`
 	parsed, _ := url.ParseQuery(fieldsQuery)
-	var vals url.Values
-	errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Fields query parameter should be valid: %s", errs)
 	}
@@ -426,7 +414,7 @@ func TestSpecV1_1_QueryParameters(t *testing.T) {
 	// Include parameter - compound documents
 	includeQuery := `include=author,comments.author`
 	parsed, _ = url.ParseQuery(includeQuery)
-	errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Include query parameter should be valid: %s", errs)
 	}
@@ -435,7 +423,7 @@ func TestSpecV1_1_QueryParameters(t *testing.T) {
 	sortQuery := `sort=-created,title`
 	parsed, _ = url.ParseQuery(sortQuery)
 	ctx = jsonapi.WithMethod(ctx, "GET")
-	errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Sort query parameter should be valid: %s", errs)
 	}
@@ -443,7 +431,7 @@ func TestSpecV1_1_QueryParameters(t *testing.T) {
 	// Filter parameter - filtering (implementation-specific keys)
 	filterQuery := `filter[status]=published`
 	parsed, _ = url.ParseQuery(filterQuery)
-	errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Filter query parameter should be valid: %s", errs)
 	}
@@ -535,8 +523,7 @@ func TestSpecV1_1_FetchingData(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, singleResource, &envelope)
+	_, errs := ruleSet.Apply(ctx, singleResource)
 	if errs != nil {
 		t.Errorf("Fetching single resource should be valid: %s", errs)
 	}
@@ -569,8 +556,7 @@ func TestSpecV1_1_CreatingResources(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, createDoc, &envelope)
+	_, errs := ruleSet.Apply(ctx, createDoc)
 	if errs != nil {
 		t.Errorf("Creating resource without id should be valid: %s", errs)
 	}
@@ -586,8 +572,7 @@ func TestSpecV1_1_CreatingResources(t *testing.T) {
 		}
 	}`
 
-	var envelopeWithId jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, createWithId, &envelopeWithId)
+	_, errs = ruleSet.Apply(ctx, createWithId)
 	if errs != nil {
 		t.Errorf("Creating resource with client-generated id should be valid: %s", errs)
 	}
@@ -623,8 +608,7 @@ func TestSpecV1_1_UpdatingResources(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, updateDoc, &envelope)
+	_, errs := ruleSet.Apply(ctx, updateDoc)
 	if errs != nil {
 		t.Errorf("Updating resource should be valid: %s", errs)
 	}
@@ -640,8 +624,7 @@ func TestSpecV1_1_UpdatingResources(t *testing.T) {
 		}
 	}`
 
-	var partialEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, partialUpdate, &partialEnvelope)
+	_, errs = ruleSet.Apply(ctx, partialUpdate)
 	if errs != nil {
 		t.Errorf("Partial update should be valid: %s", errs)
 	}
@@ -673,8 +656,7 @@ func TestSpecV1_1_DeletingResources(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, deleteResponse, &envelope)
+	_, errs := ruleSet.Apply(ctx, deleteResponse)
 	// DELETE responses may have only meta (no data)
 	if errs != nil {
 		t.Errorf("DELETE response with meta should be valid: %s", errs)
@@ -719,8 +701,7 @@ func TestSpecV1_1_Relationships(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, toOneRel, &envelope)
+	_, errs := ruleSet.Apply(ctx, toOneRel)
 	if errs != nil {
 		t.Errorf("To-one relationship should be valid: %s", errs)
 	}
@@ -744,8 +725,7 @@ func TestSpecV1_1_Relationships(t *testing.T) {
 		}
 	}`
 
-	var toManyEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, toManyRel, &toManyEnvelope)
+	_, errs = ruleSet.Apply(ctx, toManyRel)
 	if errs != nil {
 		t.Errorf("To-many relationship should be valid: %s", errs)
 	}
@@ -766,8 +746,7 @@ func TestSpecV1_1_Relationships(t *testing.T) {
 		}
 	}`
 
-	var nullEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, nullRel, &nullEnvelope)
+	_, errs = ruleSet.Apply(ctx, nullRel)
 	if errs != nil {
 		t.Errorf("Null relationship should be valid: %s", errs)
 	}
@@ -805,8 +784,7 @@ func TestSpecV1_1_Extensions(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, extDoc, &envelope)
+	_, errs := ruleSet.Apply(ctx, extDoc)
 	// Extension members should be handled as ExtensionMembers
 	if errs != nil {
 		t.Errorf("Document with extension members should be valid: %s", errs)
@@ -839,8 +817,7 @@ func TestSpecV1_1_CollectionDocuments(t *testing.T) {
 		}
 	}`
 
-	var datum1 jsonapi.Datum[ArticleAttributes]
-	errs := datumRuleSet.Apply(ctx, collectionItem1, &datum1)
+	_, errs := datumRuleSet.Apply(ctx, collectionItem1)
 	if errs != nil {
 		t.Errorf("Collection item 1 should be valid: %s", errs)
 	}
@@ -853,8 +830,7 @@ func TestSpecV1_1_CollectionDocuments(t *testing.T) {
 		}
 	}`
 
-	var datum2 jsonapi.Datum[ArticleAttributes]
-	errs = datumRuleSet.Apply(ctx, collectionItem2, &datum2)
+	_, errs = datumRuleSet.Apply(ctx, collectionItem2)
 	if errs != nil {
 		t.Errorf("Collection item 2 should be valid: %s", errs)
 	}
@@ -937,8 +913,7 @@ func TestSpecV1_1_AtMembers(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, atMemberDoc, &envelope)
+	envelope, errs := ruleSet.Apply(ctx, atMemberDoc)
 	// @-members should be captured in AtMembers map per implementation
 	if errs != nil {
 		t.Errorf("Document with @-member should be valid: %s", errs)
@@ -959,8 +934,7 @@ func TestSpecV1_1_AtMembers(t *testing.T) {
 		}
 	}`
 
-	var topLevelEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, topLevelAtMember, &topLevelEnvelope)
+	_, errs = ruleSet.Apply(ctx, topLevelAtMember)
 	if errs != nil {
 		t.Errorf("Document with top-level @-member should be valid: %s", errs)
 	}
@@ -999,8 +973,7 @@ func TestSpecV1_1_MemberNamesReservedCharacters(t *testing.T) {
 	}
 
 	for _, tc := range validAttributeNames {
-		var envelope jsonapi.SingleDatumEnvelope[TestAttributes]
-		errs := ruleSet.Apply(ctx, tc.doc, &envelope)
+		_, errs := ruleSet.Apply(ctx, tc.doc)
 		if errs != nil {
 			t.Errorf("Valid member name %q should be accepted: %s", tc.name, errs)
 		}
@@ -1016,8 +989,7 @@ func TestSpecV1_1_MemberNamesReservedCharacters(t *testing.T) {
 		}
 	}`
 
-	var metaEnvelope jsonapi.SingleDatumEnvelope[TestAttributes]
-	errs := ruleSet.Apply(ctx, validMetaDoc, &metaEnvelope)
+	_, errs := ruleSet.Apply(ctx, validMetaDoc)
 	if errs != nil {
 		t.Errorf("Valid meta member names should be accepted: %s", errs)
 	}
@@ -1070,8 +1042,7 @@ func TestSpecV1_1_MemberNamesReservedCharacters(t *testing.T) {
 	// Test that member names starting with digits are valid per spec
 	// (spec says member names MAY start with a-z, A-Z, 0-9, or globally allowed characters)
 	digitStartDoc := `{"data":{"type":"tests","id":"1","attributes":{"123field":"test"}}}`
-	var digitEnvelope jsonapi.SingleDatumEnvelope[TestAttributes]
-	errs = ruleSet.Apply(ctx, digitStartDoc, &digitEnvelope)
+	_, errs = ruleSet.Apply(ctx, digitStartDoc)
 	if errs != nil {
 		t.Errorf("Member name starting with digit should be valid: %s", errs)
 	}
@@ -1106,8 +1077,7 @@ func TestSpecV1_1_ExtensionMemberNames(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, extDoc, &envelope)
+	envelope, errs := ruleSet.Apply(ctx, extDoc)
 	if errs != nil {
 		t.Errorf("Document with extension member should be valid: %s", errs)
 	}
@@ -1228,8 +1198,7 @@ func TestSpecV1_1_RelationshipLinks(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, relWithLinks, &envelope)
+	_, errs := ruleSet.Apply(ctx, relWithLinks)
 	if errs != nil {
 		t.Errorf("Relationship with links should be valid: %s", errs)
 	}
@@ -1253,8 +1222,7 @@ func TestSpecV1_1_RelationshipLinks(t *testing.T) {
 		}
 	}`
 
-	var linksOnlyEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs = ruleSet.Apply(ctx, relLinksOnly, &linksOnlyEnvelope)
+	_, errs = ruleSet.Apply(ctx, relLinksOnly)
 	if errs != nil {
 		t.Errorf("Relationship with only links should be valid: %s", errs)
 	}
@@ -1484,8 +1452,7 @@ func TestSpecV1_1_QueryParameterValidNames(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse query: %v", err)
 			}
-			var vals url.Values
-			errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+			vals, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 			if errs != nil {
 				t.Errorf("valid query parameter name should be accepted: %s", errs)
 				return
@@ -1541,8 +1508,7 @@ func TestSpecV1_1_QueryParameterForbiddenUse(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			parsed, _ := url.ParseQuery(tc.query)
-			var vals url.Values
-			errs := jsonapi.QueryStringBaseRuleSet.Apply(tc.ctx, parsed, &vals)
+			_, errs := jsonapi.QueryStringBaseRuleSet.Apply(tc.ctx, parsed)
 			if errs == nil {
 				t.Errorf("expected validation error (%s), got none for query %q", tc.reason, tc.query)
 			}
@@ -1561,8 +1527,7 @@ func TestSpecV1_1_QueryParameterFamilies(t *testing.T) {
 	// The spec defines that fields[TYPE] is for sparse fieldsets
 	fieldsQuery := `fields[articles]=title,body&fields[people]=name,email`
 	parsed, _ := url.ParseQuery(fieldsQuery)
-	var vals url.Values
-	errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Fields query parameter family should be valid: %s", errs)
 	}
@@ -1570,7 +1535,7 @@ func TestSpecV1_1_QueryParameterFamilies(t *testing.T) {
 	// Filter family - simple key
 	filterQuery := `filter[status]=published`
 	parsed, _ = url.ParseQuery(filterQuery)
-	errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Filter query parameter family should be valid: %s", errs)
 	}
@@ -1587,8 +1552,7 @@ func TestSpecV1_1_ImplementationSpecificQueryParameters(t *testing.T) {
 	// Valid custom parameter (contains capital letter)
 	customQuery := `camelCase=value`
 	parsed, _ := url.ParseQuery(customQuery)
-	var vals url.Values
-	errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	// Custom parameters with non a-z characters should be allowed
 	if errs != nil {
 		t.Errorf("Custom query parameter (camelCase) should be valid: %s", errs)
@@ -1597,7 +1561,7 @@ func TestSpecV1_1_ImplementationSpecificQueryParameters(t *testing.T) {
 	// Another valid custom parameter (contains underscore)
 	customQuery2 := `my_param=value`
 	parsed, _ = url.ParseQuery(customQuery2)
-	errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Custom query parameter (underscore) should be valid: %s", errs)
 	}
@@ -1606,7 +1570,7 @@ func TestSpecV1_1_ImplementationSpecificQueryParameters(t *testing.T) {
 	// Server MUST return 400 Bad Request for unknown parameters that are all lowercase
 	invalidQuery := `unknownparam=value`
 	parsed, _ = url.ParseQuery(invalidQuery)
-	errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, errs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	// This should return an error per spec
 	if errs == nil {
 		t.Error("All lowercase query parameter should be rejected per spec (reserved for future use)")
@@ -1650,8 +1614,7 @@ func TestSpecV1_1_ResourceObjectLid(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, resourceWithLid, &envelope)
+	_, errs := ruleSet.Apply(ctx, resourceWithLid)
 	if errs != nil {
 		t.Errorf("Resource with lid should be valid: %s", errs)
 	}
@@ -1693,8 +1656,7 @@ func TestSpecV1_1_TopLevelMemberCoexistence(t *testing.T) {
 		t.Fatalf("Invalid document should still be valid JSON: %v", err)
 	}
 	ruleSet := jsonapi.NewSingleRuleSet[ArticleAttributes]("articles", attributesRuleSet)
-	var invalidEnvelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(context.Background(), invalidParsed, &invalidEnvelope)
+	_, errs := ruleSet.Apply(context.Background(), invalidParsed)
 	if errs == nil {
 		t.Error("Document with both data and errors must be rejected by validator (they must not coexist)")
 	}
@@ -1765,8 +1727,7 @@ func TestSpecV1_1_IncludedResourceFullLinkage(t *testing.T) {
 		]
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, validCompound, &envelope)
+	_, errs := ruleSet.Apply(ctx, validCompound)
 	if errs != nil {
 		t.Errorf("Valid compound document should be valid: %s", errs)
 	}
@@ -1811,8 +1772,7 @@ func TestSpecV1_1_RelationshipMeta(t *testing.T) {
 		}
 	}`
 
-	var envelope jsonapi.SingleDatumEnvelope[ArticleAttributes]
-	errs := ruleSet.Apply(ctx, relWithMeta, &envelope)
+	_, errs := ruleSet.Apply(ctx, relWithMeta)
 	if errs != nil {
 		t.Errorf("Relationship with meta should be valid: %s", errs)
 	}
@@ -1833,8 +1793,7 @@ func TestSpecV1_1_ResourceIdentifierMeta(t *testing.T) {
 		}
 	}`
 
-	var linkage jsonapi.ResourceLinkage
-	errs := jsonapi.ResourceLinkageRuleSet.Apply(ctx, identifierWithMeta, &linkage)
+	_, errs := jsonapi.ResourceLinkageRuleSet.Apply(ctx, identifierWithMeta)
 	if errs != nil {
 		t.Errorf("Resource identifier with meta should be valid: %s", errs)
 	}

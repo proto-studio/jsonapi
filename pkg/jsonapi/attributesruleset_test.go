@@ -16,8 +16,7 @@ func TestAttributesRuleSet_WithKey_valid(t *testing.T) {
 		WithKey("createdAt", rules.String().Any())
 
 	input := map[string]any{"title": "Hello", "createdAt": "2024-01-01"}
-	var out map[string]any
-	errs := rs.Apply(context.Background(), input, &out)
+	out, errs := rs.Apply(context.Background(), input)
 	if errs != nil {
 		t.Fatalf("Apply: %s", errs)
 	}
@@ -45,8 +44,7 @@ func TestAttributesRuleSet_WithKeyUnsafe(t *testing.T) {
 	rs := jsonapi.Attributes().WithKeyUnsafe("field.name", rules.String().Any())
 
 	input := map[string]any{"field.name": "value"}
-	var out map[string]any
-	errs := rs.Apply(context.Background(), input, &out)
+	out, errs := rs.Apply(context.Background(), input)
 	if errs != nil {
 		t.Fatalf("Apply: %s", errs)
 	}
@@ -61,8 +59,7 @@ func TestAttributesRuleSet_WithUnknown(t *testing.T) {
 		WithUnknown()
 
 	input := map[string]any{"title": "Hi", "custom": "allowed"}
-	var out map[string]any
-	errs := rs.Apply(context.Background(), input, &out)
+	out, errs := rs.Apply(context.Background(), input)
 	if errs != nil {
 		t.Fatalf("Apply: %s", errs)
 	}
@@ -97,8 +94,7 @@ func TestAttributesRuleSet_DelegatedMethods(t *testing.T) {
 	if anyRS == nil {
 		t.Error("expected non-nil Any()")
 	}
-	var out map[string]any
-	errs := anyRS.Apply(ctx, input, &out)
+	_, errs := anyRS.Apply(ctx, input)
 	if errs != nil {
 		t.Fatalf("Apply via Any: %s", errs)
 	}
@@ -125,8 +121,7 @@ func TestAttributesRuleSet_WithConditionalKeyAndDynamic(t *testing.T) {
 
 	ctx := context.Background()
 	input := map[string]any{"opt": "val", "unsafeOpt": "x"}
-	var out map[string]any
-	errs := rs.Apply(ctx, input, &out)
+	_, errs := rs.Apply(ctx, input)
 	if errs != nil {
 		t.Fatalf("Apply: %s", errs)
 	}

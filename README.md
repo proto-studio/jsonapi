@@ -3,7 +3,6 @@
 [![Tests](https://github.com/proto-studio/jsonapi/actions/workflows/tests.yml/badge.svg)](https://github.com/proto-studio/jsonapi/actions/workflows/tests.yml)
 [![GoDoc](https://pkg.go.dev/badge/proto.zip/studio/jsonapi)](https://pkg.go.dev/proto.zip/studio/jsonapi)
 [![codecov](https://codecov.io/gh/proto-studio/jsonapi/graph/badge.svg)](https://codecov.io/gh/proto-studio/jsonapi)
-[![Go Report Card](https://goreportcard.com/badge/proto.zip/studio/jsonapi)](https://goreportcard.com/report/proto.zip/studio/jsonapi)
 [![Discord Chat](https://img.shields.io/badge/Discord-chat-blue?logo=Discord&logoColor=white)](https://proto.studio/social/discord)
 
 This library is a Go implementation of the [Json:API v1.1 spec](https://jsonapi.org/format/) for both clients and servers.
@@ -66,8 +65,8 @@ func main() {
 	ctx := context.Background()
 
 	doc := `{"data":{"type":"articles","id":"1","attributes":{"title":"Hello"}}}`
-	var envelope jsonapi.SingleDatumEnvelope[map[string]any]
-	if errs := ruleSet.Apply(ctx, doc, &envelope); errs != nil {
+	envelope, errs := ruleSet.Apply(ctx, doc)
+	if errs != nil {
 		fmt.Println(errs)
 		return
 	}

@@ -76,6 +76,9 @@ func TestError_QueryUsesParameterBodyUsesPointer(t *testing.T) {
 	if queryList[0].Source.Pointer != "" {
 		t.Errorf("query error should not set source.pointer, got %q", queryList[0].Source.Pointer)
 	}
+	if queryList[0].Status != "400" {
+		t.Errorf("query string errors should use status 400 per JSON:API, got %q", queryList[0].Status)
+	}
 
 	// Body: should use source.pointer
 	bodyCtx := rulecontext.WithPathString(ctx, "data")
@@ -152,8 +155,7 @@ func TestQueryRuleSet_ReturnsParameterInSource(t *testing.T) {
 	rs := QueryStringBaseRuleSet
 	values := url.Values{}
 	values.Set("filter", "x") // all-lowercase reserved param triggers validation error
-	var out url.Values
-	errs := rs.Apply(context.Background(), values, &out)
+	_, errs := rs.Apply(context.Background(), values)
 	if errs == nil {
 		t.Fatal("expected validation errors")
 	}
@@ -165,14 +167,45 @@ func TestQueryRuleSet_ReturnsParameterInSource(t *testing.T) {
 		if e.Source != nil && e.Source.Parameter == "" && e.Source.Pointer != "" {
 			t.Errorf("query error[%d]: expected source.parameter, got pointer=%q", i, e.Source.Pointer)
 		}
+		if e.Status != "400" {
+			t.Errorf("query error[%d]: status should be 400 per JSON:API, got %q", i, e.Status)
+		}
+	}
+	// source.parameter must be the query param name only (e.g. "filter"), not JsonPath (e.g. "query[filter]").
+	var gotParam string
+	for _, e := range list {
+		if e.Source != nil && e.Source.Parameter != "" {
+			gotParam = e.Source.Parameter
+			break
+		}
+	}
+	if gotParam != "filter" {
+		t.Errorf("source.parameter should be param name only, got %q (want \"filter\")", gotParam)
+	}
+}
+
+func TestErrorFromValidationError_QueryParamNameOnly(t *testing.T) {
+	// Path from query validation is "query[key]"; source.parameter must be just the param name per JSON:API.
+	ve := &mockValidationError{code: errors.CodeUnexpected, title: "bad", detail: "invalid", path: "query[page[size]]"}
+	e := ErrorFromValidationError(ve, SourceParameter)
+	if e.Status != "400" {
+		t.Errorf("query string error status: got %q, want 400", e.Status)
+	}
+	if e.Source == nil || e.Source.Parameter != "page[size]" {
+		t.Errorf("source.parameter should be param name only, got %v", e.Source)
+	}
+	// Path without "query[...]" is used as-is (e.g. when context sets path to "sort" directly).
+	ve2 := &mockValidationError{code: errors.CodeUnexpected, title: "bad", detail: "invalid", path: "sort"}
+	e2 := ErrorFromValidationError(ve2, SourceParameter)
+	if e2.Source == nil || e2.Source.Parameter != "sort" {
+		t.Errorf("source.parameter when path is param name: got %v", e2.Source)
 	}
 }
 
 func TestSingleRuleSet_ReturnsPointerInSource(t *testing.T) {
 	// Validate body rule set wraps errors with pointer (e.g. invalid JSON)
 	rs := NewSingleRuleSet[map[string]any]("articles", Attributes())
-	var out SingleDatumEnvelope[map[string]any]
-	errs := rs.Apply(context.Background(), "not json at all", &out)
+	_, errs := rs.Apply(context.Background(), "not json at all")
 	if errs == nil {
 		t.Fatal("expected validation errors")
 	}
@@ -447,7 +480,7 @@ func TestError_SerializationOmitsEmptyOptionalFields(t *testing.T) {
 
 	t.Run("source_with_only_parameter_omits_pointer_and_header", func(t *testing.T) {
 		resp := ErrorResponse{Errors: []Error{{
-			Status: "422",
+			Status: "400",
 			Source: &Source{Parameter: "sort", Pointer: "", Header: ""},
 		}}}
 		data, err := json.Marshal(resp)

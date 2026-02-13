@@ -172,8 +172,7 @@ func (h *HeaderRuleSet) validateContentType(ctx context.Context, headers http.He
 	if h.extRuleSet != nil {
 		if extVal := params[contentTypeParamExt]; extVal != "" {
 			extCtx := rulecontext.WithPathString(ctx, "Content-Type")
-			var out any
-			if err := h.extRuleSet.Apply(extCtx, extVal, &out); err != nil {
+			if _, err := h.extRuleSet.Apply(extCtx, extVal); err != nil {
 				return err
 			}
 		}
@@ -182,8 +181,7 @@ func (h *HeaderRuleSet) validateContentType(ctx context.Context, headers http.He
 	if h.profileRuleSet != nil {
 		if profileVal := params[contentTypeParamProfile]; profileVal != "" {
 			profileCtx := rulecontext.WithPathString(ctx, "Content-Type")
-			var out any
-			if err := h.profileRuleSet.Apply(profileCtx, profileVal, &out); err != nil {
+			if _, err := h.profileRuleSet.Apply(profileCtx, profileVal); err != nil {
 				return err
 			}
 		}
@@ -204,8 +202,7 @@ func (h *HeaderRuleSet) Evaluate(ctx context.Context, headers http.Header) error
 		}
 		val := getHeader(headers, name)
 		headerCtx := rulecontext.WithPathString(ctx, name)
-		var out any
-		if err := ruleSet.Apply(headerCtx, val, &out); err != nil {
+		if _, err := ruleSet.Apply(headerCtx, val); err != nil {
 			errs = append(errs, errors.Unwrap(err)...)
 		}
 	}
@@ -215,9 +212,9 @@ func (h *HeaderRuleSet) Evaluate(ctx context.Context, headers http.Header) error
 	return ToJSONAPIErrors(errors.Join(errs...), SourceHeader)
 }
 
-// Apply coerces input to http.Header (or from map[string][]string or jsonapi Header), validates, and optionally writes to output.
-// Input may be http.Header, map[string][]string, Header, or *Header. Output may be *http.Header (map) or *Header (jsonapi object).
-func (h *HeaderRuleSet) Apply(ctx context.Context, input any, output any) errors.ValidationError {
+// Apply coerces input to http.Header (or from map[string][]string or jsonapi Header), validates, and returns the headers.
+// Input may be http.Header, map[string][]string, Header, or *Header.
+func (h *HeaderRuleSet) Apply(ctx context.Context, input any) (http.Header, errors.ValidationError) {
 	var headers http.Header
 	switch v := input.(type) {
 	case http.Header:
@@ -229,34 +226,12 @@ func (h *HeaderRuleSet) Apply(ctx context.Context, input any, output any) errors
 	case Header:
 		headers = headerToHTTP(&v)
 	default:
-		return ToJSONAPIErrors(errors.Errorf(errors.CodeType, ctx, "http.Header, map[string][]string, or jsonapi.Header", reflect.ValueOf(input).Kind().String()), SourceHeader)
+		return nil, ToJSONAPIErrors(errors.Errorf(errors.CodeType, ctx, "http.Header, map[string][]string, or jsonapi.Header", reflect.ValueOf(input).Kind().String()), SourceHeader)
 	}
 	if err := h.Evaluate(ctx, headers); err != nil {
-		return ToJSONAPIErrors(err, SourceHeader)
+		return nil, ToJSONAPIErrors(err, SourceHeader)
 	}
-	if output != nil {
-		if out, ok := output.(*Header); ok {
-			*out = *httpHeaderToHeader(headers)
-			return nil
-		}
-		outputVal := reflect.ValueOf(output)
-		if outputVal.Kind() == reflect.Ptr && !outputVal.IsNil() {
-			switch elem := outputVal.Elem(); elem.Kind() {
-			case reflect.Interface:
-				elem.Set(reflect.ValueOf(headers))
-			case reflect.Map:
-				if elem.Type() == reflect.TypeOf(http.Header(nil)) {
-					if elem.IsNil() {
-						elem.Set(reflect.MakeMap(elem.Type()))
-					}
-					for k, v := range headers {
-						elem.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(v))
-					}
-				}
-			}
-		}
-	}
-	return nil
+	return headers, nil
 }
 
 // Required returns true if Content-Type is required (default).

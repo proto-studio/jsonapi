@@ -26,8 +26,7 @@ func TestQueryStringFields(t *testing.T) {
 
 	ctx := context.Background()
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	vals, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil, got: %s", verrs)
 	}
@@ -50,8 +49,7 @@ func TestQueryStringSort(t *testing.T) {
 
 	ctx := context.Background()
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	vals, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil, got: %s", verrs)
 	}
@@ -64,8 +62,7 @@ func TestQueryStringSort(t *testing.T) {
 // TestQueryRuleSet_WithParam_legal verifies that Query() and WithParam with legal keys work.
 func TestQueryRuleSet_WithParam_legal(t *testing.T) {
 	rs := jsonapi.Query().WithParam("sort", rules.String().Any())
-	var out url.Values
-	err := rs.Apply(context.Background(), "sort=title", &out)
+	out, err := rs.Apply(context.Background(), "sort=title")
 	if err != nil {
 		t.Fatalf("Apply failed: %v", err)
 	}
@@ -91,8 +88,7 @@ func TestQueryRuleSet_EvaluateRequiredStringReplacesAny(t *testing.T) {
 	if anyRS == nil {
 		t.Error("Any() should not be nil")
 	}
-	var out url.Values
-	errs := anyRS.Apply(ctx, vals, &out)
+	_, errs := anyRS.Apply(ctx, vals)
 	if errs != nil {
 		t.Fatalf("Apply via Any: %s", errs)
 	}
@@ -120,8 +116,7 @@ func TestQueryRuleSet_WithParam_illegal(t *testing.T) {
 // TestQueryRuleSet_WithParamUnsafe verifies that WithParamUnsafe does not panic for any key.
 func TestQueryRuleSet_WithParamUnsafe(t *testing.T) {
 	rs := jsonapi.Query().WithParamUnsafe("unknownparam", rules.String().Any())
-	var out url.Values
-	err := rs.Apply(context.Background(), "unknownparam=value", &out)
+	out, err := rs.Apply(context.Background(), "unknownparam=value")
 	if err != nil {
 		t.Fatalf("Apply failed: %v", err)
 	}
@@ -154,8 +149,7 @@ func TestQueryUnexpected(t *testing.T) {
 		t.Fatalf("Expected parse error to be nil, got: %s", err)
 	}
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(context.Background(), query, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(context.Background(), query)
 	if verrs != nil {
 		t.Errorf("Implementation-specific query param (with non-lowercase) should be allowed; got: %v", verrs)
 	}
@@ -214,8 +208,7 @@ func TestQueryStringFields_DELETE_Forbidden(t *testing.T) {
 
 	ctx := jsonapi.WithMethod(context.Background(), "DELETE")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for DELETE method, got nil")
 	}
@@ -244,8 +237,7 @@ func TestQueryStringSort_IndexOnly(t *testing.T) {
 	ctx := jsonapi.WithMethod(context.Background(), "GET")
 	// No ID means it's an index request
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	vals, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil, got: %s", verrs)
 	}
@@ -265,8 +257,7 @@ func TestQueryStringSort_WithId_Forbidden(t *testing.T) {
 	ctx := jsonapi.WithMethod(context.Background(), "GET")
 	ctx = jsonapi.WithId(ctx, "123") // Has ID, so not an index request
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for sort with ID, got nil")
 	}
@@ -292,8 +283,7 @@ func TestQueryStringSort_NonGET_Forbidden(t *testing.T) {
 
 	ctx := jsonapi.WithMethod(context.Background(), "POST")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for sort on POST, got nil")
 	}
@@ -319,8 +309,7 @@ func TestQueryStringSort_HEAD_Allowed(t *testing.T) {
 
 	ctx := jsonapi.WithMethod(context.Background(), "HEAD")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil for HEAD, got: %s", verrs)
 	}
@@ -335,8 +324,7 @@ func TestQueryStringFilter_IndexOnly(t *testing.T) {
 
 	ctx := jsonapi.WithMethod(context.Background(), "GET")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	vals, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil, got: %s", verrs)
 	}
@@ -356,8 +344,7 @@ func TestQueryStringFilter_WithId_Forbidden(t *testing.T) {
 	ctx := jsonapi.WithMethod(context.Background(), "GET")
 	ctx = jsonapi.WithId(ctx, "123")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for filter with ID, got nil")
 	}
@@ -372,8 +359,7 @@ func TestQueryStringFilter_NonGET_Forbidden(t *testing.T) {
 
 	ctx := jsonapi.WithMethod(context.Background(), "POST")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for filter on POST, got nil")
 	}
@@ -388,8 +374,7 @@ func TestQueryStringPageSize_IndexOnly(t *testing.T) {
 
 	ctx := jsonapi.WithMethod(context.Background(), "GET")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	vals, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs != nil {
 		t.Fatalf("Expected validation error to be nil, got: %s", verrs)
 	}
@@ -409,8 +394,7 @@ func TestQueryStringPageSize_WithId_Forbidden(t *testing.T) {
 	ctx := jsonapi.WithMethod(context.Background(), "GET")
 	ctx = jsonapi.WithId(ctx, "123")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for page[size] with ID, got nil")
 	}
@@ -425,8 +409,7 @@ func TestQueryStringPageSize_InvalidRange(t *testing.T) {
 
 	ctx := jsonapi.WithMethod(context.Background(), "GET")
 
-	var vals url.Values
-	verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for page[size]=0, got nil")
 	}
@@ -437,7 +420,7 @@ func TestQueryStringPageSize_InvalidRange(t *testing.T) {
 		t.Fatalf("Expected parse error to be nil, got: %s", err)
 	}
 
-	verrs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	_, verrs = jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for page[size]=101, got nil")
 	}

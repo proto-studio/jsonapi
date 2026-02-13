@@ -131,9 +131,9 @@ func (s *Server) createStore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := jsonapi.WithMethod(context.Background(), r.Method)
-	var env jsonapi.SingleDatumEnvelope[StoreAttributes]
 	log.Printf("[createStore] before Apply")
-	if errs := StoreRuleSet().Apply(ctx, data, &env); errs != nil {
+	env, errs := StoreRuleSet().Apply(ctx, data)
+	if errs != nil {
 		log.Printf("[createStore] Apply returned error, converting to JSON:API errors")
 		list := jsonapi.ErrorsFromValidationError(errs, jsonapi.SourcePointer)
 		log.Printf("[createStore] got %d errors, writing response", len(list))
@@ -165,8 +165,8 @@ func (s *Server) updateStore(w http.ResponseWriter, r *http.Request, id string) 
 	}
 	ctx := jsonapi.WithMethod(context.Background(), r.Method)
 	ctx = jsonapi.WithId(ctx, id)
-	var env jsonapi.SingleDatumEnvelope[StoreAttributes]
-	if errs := StoreRuleSet().Apply(ctx, data, &env); errs != nil {
+	env, errs := StoreRuleSet().Apply(ctx, data)
+	if errs != nil {
 		list := jsonapi.ErrorsFromValidationError(errs, jsonapi.SourcePointer)
 		writeErrors(w, http.StatusUnprocessableEntity, list)
 		return
@@ -225,8 +225,8 @@ func (s *Server) createPet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := jsonapi.WithMethod(context.Background(), r.Method)
-	var env jsonapi.SingleDatumEnvelope[PetAttributes]
-	if errs := PetRuleSet().Apply(ctx, data, &env); errs != nil {
+	env, errs := PetRuleSet().Apply(ctx, data)
+	if errs != nil {
 		list := jsonapi.ErrorsFromValidationError(errs, jsonapi.SourcePointer)
 		writeErrors(w, http.StatusUnprocessableEntity, list)
 		return
@@ -258,8 +258,8 @@ func (s *Server) updatePet(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	ctx := jsonapi.WithMethod(context.Background(), r.Method)
 	ctx = jsonapi.WithId(ctx, id)
-	var env jsonapi.SingleDatumEnvelope[PetAttributes]
-	if errs := PetRuleSet().Apply(ctx, data, &env); errs != nil {
+	env, errs := PetRuleSet().Apply(ctx, data)
+	if errs != nil {
 		list := jsonapi.ErrorsFromValidationError(errs, jsonapi.SourcePointer)
 		writeErrors(w, http.StatusUnprocessableEntity, list)
 		return

@@ -2,7 +2,6 @@ package jsonapi
 
 import (
 	"context"
-	"reflect"
 
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
@@ -159,8 +158,9 @@ func (ruleSet *DatumRuleSet[T]) WithErrorCallback(fn errors.ErrorCallback) *Datu
 	return newRuleSet
 }
 
-// Apply validates the input (resource object) and decodes it into output.
-func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input, output any) errors.ValidationError {
+// Apply validates the input (resource object) and decodes it into a Datum[T].
+func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input any) (Datum[T], errors.ValidationError) {
+	var zero Datum[T]
 	if ruleSet.errorConfig != nil {
 		ctx = errors.WithErrorConfig(ctx, ruleSet.errorConfig)
 	}
@@ -177,37 +177,18 @@ func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input, output any) er
 	datumValidator = datumValidator.WithDynamicBucket(atMembersKeyRule, "AtMembers")
 	datumValidator = datumValidator.WithDynamicBucket(extKeyRule, "ExtensionMembers")
 
-	errs := datumValidator.Apply(ctx, input, output)
-
-	if errs == nil {
-		t := ruleSet.typeRuleSet.Value()
-
-		switch o := (output).(type) {
-		case *Datum[T]:
-			o.Type = t
-		case *any:
-			// Output is a pointer to *Interface{} which points to Datum[T]
-			// I need to set
-			switch oo := (*o).(type) {
-			case Datum[T]:
-				oo.Type = t
-				reflect.ValueOf(output).Elem().Set(reflect.ValueOf(oo))
-			case map[string]any:
-				oo["Type"] = t
-				reflect.ValueOf(output).Elem().Set(reflect.ValueOf(oo))
-			}
-		case map[string]any:
-			o["Type"] = t
-		}
+	out, errs := datumValidator.Apply(ctx, input)
+	if errs != nil {
+		return zero, errs
 	}
-
-	return errs
+	out.Type = ruleSet.typeRuleSet.Value()
+	return out, nil
 }
 
 // Evaluate validates a Datum value and returns any validation errors.
 func (ruleSet *DatumRuleSet[T]) Evaluate(ctx context.Context, value Datum[T]) errors.ValidationError {
-	var out Datum[T]
-	return ruleSet.Apply(ctx, value, &out)
+	_, err := ruleSet.Apply(ctx, value)
+	return err
 }
 
 // Any returns the rule set as rules.RuleSet[any] for use with generic validators.

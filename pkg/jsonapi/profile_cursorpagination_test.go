@@ -27,8 +27,7 @@ func TestCursorPagination_PageSize(t *testing.T) {
 	t.Run("valid page size", func(t *testing.T) {
 		query := `page[size]=10`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		vals, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("Valid page[size]=10 should be accepted: %s", errs)
 		}
@@ -41,8 +40,7 @@ func TestCursorPagination_PageSize(t *testing.T) {
 	t.Run("minimum page size", func(t *testing.T) {
 		query := `page[size]=1`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("page[size]=1 should be valid: %s", errs)
 		}
@@ -52,8 +50,7 @@ func TestCursorPagination_PageSize(t *testing.T) {
 	t.Run("zero page size rejected", func(t *testing.T) {
 		query := `page[size]=0`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("page[size]=0 should be rejected (must be positive integer)")
 		}
@@ -63,8 +60,7 @@ func TestCursorPagination_PageSize(t *testing.T) {
 	t.Run("negative page size rejected", func(t *testing.T) {
 		query := `page[size]=-1`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("page[size]=-1 should be rejected (must be positive integer)")
 		}
@@ -82,8 +78,7 @@ func TestCursorPagination_MaxPageSize(t *testing.T) {
 	t.Run("at max page size", func(t *testing.T) {
 		query := `page[size]=100`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("page[size]=100 (max) should be valid: %s", errs)
 		}
@@ -92,8 +87,7 @@ func TestCursorPagination_MaxPageSize(t *testing.T) {
 	t.Run("exceeds max page size", func(t *testing.T) {
 		query := `page[size]=101`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("page[size]=101 should be rejected (exceeds max page size)")
 		}
@@ -110,8 +104,7 @@ func TestCursorPagination_PageAfter(t *testing.T) {
 		// Example from profile: GET /people?page[size]=100&page[after]=abcde
 		query := `page[size]=100&page[after]=abcde`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		vals, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("page[after]=abcde should be valid: %s", errs)
 		}
@@ -123,8 +116,7 @@ func TestCursorPagination_PageAfter(t *testing.T) {
 	t.Run("cursor with special characters", func(t *testing.T) {
 		query := `page[after]=cursor_123-abc`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("Cursor with special characters should be valid: %s", errs)
 		}
@@ -134,8 +126,7 @@ func TestCursorPagination_PageAfter(t *testing.T) {
 		// Profile: "A cursor is a string, created by the server using whatever method it likes"
 		query := `page[after]=someOpaqueString`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("Opaque cursor string should be valid: %s", errs)
 		}
@@ -151,8 +142,7 @@ func TestCursorPagination_PageBefore(t *testing.T) {
 	t.Run("valid cursor", func(t *testing.T) {
 		query := `page[before]=xyz`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		vals, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("page[before]=xyz should be valid: %s", errs)
 		}
@@ -165,8 +155,7 @@ func TestCursorPagination_PageBefore(t *testing.T) {
 		// Profile: "Replacing page[after] with page[before] would allow the client to paginate backwards"
 		query := `page[size]=10&page[before]=cursor123`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("Backwards pagination should be valid: %s", errs)
 		}
@@ -183,8 +172,7 @@ func TestCursorPagination_RangePagination(t *testing.T) {
 	t.Run("range with both cursors", func(t *testing.T) {
 		query := `page[after]=abcde&page[before]=fghij`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		vals, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("Range pagination with both cursors should be valid: %s", errs)
 		}
@@ -199,8 +187,7 @@ func TestCursorPagination_RangePagination(t *testing.T) {
 	t.Run("range with size", func(t *testing.T) {
 		query := `page[size]=50&page[after]=start&page[before]=end`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("Range pagination with size should be valid: %s", errs)
 		}
@@ -216,8 +203,7 @@ func TestCursorPagination_IndexOnly(t *testing.T) {
 		ctx := jsonapi.WithMethod(context.Background(), "POST")
 		query := `page[size]=10`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("page[size] should be forbidden on POST")
 		}
@@ -228,8 +214,7 @@ func TestCursorPagination_IndexOnly(t *testing.T) {
 		ctx = jsonapi.WithId(ctx, "123")
 		query := `page[size]=10`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("page[size] should be forbidden when fetching single resource")
 		}
@@ -240,8 +225,7 @@ func TestCursorPagination_IndexOnly(t *testing.T) {
 		ctx = jsonapi.WithId(ctx, "123")
 		query := `page[after]=cursor`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("page[after] should be forbidden when fetching single resource")
 		}
@@ -252,8 +236,7 @@ func TestCursorPagination_IndexOnly(t *testing.T) {
 		ctx = jsonapi.WithId(ctx, "123")
 		query := `page[before]=cursor`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("page[before] should be forbidden when fetching single resource")
 		}
@@ -268,8 +251,7 @@ func TestCursorPagination_HEAD(t *testing.T) {
 	t.Run("page[size] allowed on HEAD", func(t *testing.T) {
 		query := `page[size]=10`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("page[size] should be allowed on HEAD index: %s", errs)
 		}
@@ -278,8 +260,7 @@ func TestCursorPagination_HEAD(t *testing.T) {
 	t.Run("page[after] allowed on HEAD", func(t *testing.T) {
 		query := `page[after]=cursor`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("page[after] should be allowed on HEAD index: %s", errs)
 		}
@@ -295,8 +276,7 @@ func TestCursorPagination_WithSort(t *testing.T) {
 	t.Run("pagination with sort", func(t *testing.T) {
 		query := `sort=-created,title&page[size]=10&page[after]=cursor`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		vals, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs != nil {
 			t.Errorf("Pagination with sort should be valid: %s", errs)
 		}
@@ -321,8 +301,7 @@ func TestCursorPagination_EmptyCursor(t *testing.T) {
 	t.Run("empty page[after] rejected", func(t *testing.T) {
 		query := `page[after]=`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("Empty page[after] should be rejected")
 		}
@@ -331,8 +310,7 @@ func TestCursorPagination_EmptyCursor(t *testing.T) {
 	t.Run("empty page[before] rejected", func(t *testing.T) {
 		query := `page[before]=`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Errorf("Empty page[before] should be rejected")
 		}
@@ -348,8 +326,7 @@ func TestCursorPagination_FullExample(t *testing.T) {
 	// Example from the profile introduction
 	query := `page[size]=100&page[after]=abcde`
 	parsed, _ := url.ParseQuery(query)
-	var vals url.Values
-	errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+	vals, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if errs != nil {
 		t.Errorf("Profile example should be valid: %s", errs)
 	}
@@ -380,8 +357,7 @@ func TestCursorPagination_NonIntegerSize(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			parsed, _ := url.ParseQuery(tc.query)
-			var vals url.Values
-			errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+			_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 			if errs == nil {
 				t.Errorf("Non-integer page[size] '%s' should be rejected", tc.query)
 			}
@@ -397,8 +373,7 @@ func TestCursorPagination_ErrorCodes(t *testing.T) {
 	t.Run("invalid page size returns proper error", func(t *testing.T) {
 		query := `page[size]=0`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Fatalf("Expected error for invalid page size")
 		}
@@ -419,8 +394,7 @@ func TestCursorPagination_ErrorCodes(t *testing.T) {
 	t.Run("exceeds max returns proper error", func(t *testing.T) {
 		query := `page[size]=1000`
 		parsed, _ := url.ParseQuery(query)
-		var vals url.Values
-		errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed, &vals)
+		_, errs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 		if errs == nil {
 			t.Fatalf("Expected error for page size exceeding max")
 		}

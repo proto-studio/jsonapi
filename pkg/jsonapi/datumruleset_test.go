@@ -31,14 +31,12 @@ func TestSingleDatumTyped(t *testing.T) {
 
 	ctx := context.Background()
 
-	var test jsonapi.Datum[testDatum]
-
-	errs := ruleSet.Apply(ctx, `{
+	test, errs := ruleSet.Apply(ctx, `{
 	  "id": "abc",
 	  "attributes": {
 		  "Name": "My Test"
 		}
-	}`, &test)
+	}`)
 
 	if errs != nil {
 		t.Fatalf("Expected errors to be nil, got: %s", errs.Error())
@@ -55,24 +53,24 @@ func TestSingleDatumTyped(t *testing.T) {
 	}
 
 	// Type matches expected
-	errs = ruleSet.Apply(ctx, `{
+	test, errs = ruleSet.Apply(ctx, `{
 	  "id": "abc",
 		"type": "tests",
 	  "attributes": {
 		  "Name": "My Test"
 		}
-	}`, &test)
+	}`)
 	if errs != nil {
 		t.Errorf("Expected errors on matching type to be nil, got: %s", errs.Error())
 	}
 
 	// Name is too short
-	errs = ruleSet.Apply(ctx, `{
+	_, errs = ruleSet.Apply(ctx, `{
 	  "id": "abc",
 	  "attributes": {
 		  "Name": "short"
 		}
-	}`, &test)
+	}`)
 
 	if errs != nil {
 		unwrapped := errors.Unwrap(errs)
@@ -88,13 +86,13 @@ func TestSingleDatumTyped(t *testing.T) {
 	}
 
 	// Type is present but does not match the expected type
-	errs = ruleSet.Apply(ctx, `{
+	_, errs = ruleSet.Apply(ctx, `{
 	  "id": "abc",
 		"type": "bogus",
 	  "attributes": {
 		  "Name": "My test"
 		}
-	}`, &test)
+	}`)
 
 	if errs != nil {
 		unwrapped := errors.Unwrap(errs)
@@ -129,8 +127,7 @@ func TestWithUnknownRelationshipsDatum(t *testing.T) {
 		}
 	}`
 
-	var d jsonapi.Datum[map[string]any]
-	errs := ruleSet.Apply(ctx, testJson, &d)
+	_, errs := ruleSet.Apply(ctx, testJson)
 
 	if errs == nil {
 		t.Errorf("Expected errors to not be nil")
@@ -139,8 +136,7 @@ func TestWithUnknownRelationshipsDatum(t *testing.T) {
 	// ID linkage
 	ruleSet = ruleSet.WithUnknownRelationships()
 
-	var out jsonapi.Datum[map[string]any]
-	errs = ruleSet.Apply(ctx, testJson, &out)
+	out, errs := ruleSet.Apply(ctx, testJson)
 
 	if errs != nil {
 		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
@@ -160,8 +156,7 @@ func TestWithUnknownRelationshipsDatum(t *testing.T) {
 	}`
 
 	ruleSet = ruleSet.WithUnknownRelationships()
-	out = jsonapi.Datum[map[string]any]{}
-	errs = ruleSet.Apply(ctx, testJson, &out)
+	out, errs = ruleSet.Apply(ctx, testJson)
 
 	if errs != nil {
 		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
@@ -192,8 +187,7 @@ func TestWithUnknownRelationshipsDatum(t *testing.T) {
 	}`
 
 	ruleSet = ruleSet.WithUnknownRelationships()
-	out = jsonapi.Datum[map[string]any]{}
-	errs = ruleSet.Apply(ctx, testJson, &out)
+	out, errs = ruleSet.Apply(ctx, testJson)
 
 	if errs != nil {
 		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
@@ -246,8 +240,7 @@ func TestDatumRuleSet_WithRelationship(t *testing.T) {
 		}
 	}`
 
-	var out jsonapi.Datum[testDatum]
-	errs := newRuleSet.Apply(ctx, testJson, &out)
+	out, errs := newRuleSet.Apply(ctx, testJson)
 
 	if errs != nil {
 		t.Errorf("Expected errors to be nil, got: %s", errs.Error())
@@ -355,8 +348,7 @@ func TestDatumRuleSet_WithMetaWithNilAndErrorConfig(t *testing.T) {
 	if anyRS == nil {
 		t.Error("Any() should not be nil")
 	}
-	var out any
-	errs := anyRS.Apply(ctx, `{"id":"1","type":"tests","attributes":{"Name":"y"}}`, &out)
+	_, errs := anyRS.Apply(ctx, `{"id":"1","type":"tests","attributes":{"Name":"y"}}`)
 	if errs != nil {
 		t.Fatalf("Apply via Any: %s", errs)
 	}

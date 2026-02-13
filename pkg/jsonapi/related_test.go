@@ -30,8 +30,7 @@ func TestIdentifierLinkageCast(t *testing.T) {
 		"id":   "123",
 	}
 
-	var val jsonapi.ResourceLinkage
-	errs := jsonapi.ResourceLinkageRuleSet.Apply(context.Background(), linkage, &val)
+	val, errs := jsonapi.ResourceLinkageRuleSet.Apply(context.Background(), linkage)
 
 	if errs != nil {
 		t.Errorf("Unexpected error running rule set: %s", errs.Error())
@@ -49,8 +48,7 @@ func TestIdentifierLinkageCast(t *testing.T) {
 // Requirements:
 // - Linkage validator should return NilResourceLinkage not nil
 func TestNilLinkage(t *testing.T) {
-	var val jsonapi.ResourceLinkage
-	errs := jsonapi.ResourceLinkageRuleSet.Apply(context.Background(), nil, &val)
+	val, errs := jsonapi.ResourceLinkageRuleSet.Apply(context.Background(), nil)
 
 	if errs != nil {
 		t.Errorf("Unexpected error running rule set: %s", errs.Error())
@@ -72,8 +70,7 @@ func TestLinkageCollection(t *testing.T) {
 		linkage,
 	}
 
-	var val jsonapi.ResourceLinkage
-	errs := jsonapi.ResourceLinkageRuleSet.Apply(context.Background(), linkages, &val)
+	val, errs := jsonapi.ResourceLinkageRuleSet.Apply(context.Background(), linkages)
 
 	if errs != nil {
 		t.Errorf("Unexpected error running rule set: %s", errs.Error())

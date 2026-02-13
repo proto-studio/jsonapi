@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rulecontext"
 	"proto.zip/studio/validate/pkg/rules"
@@ -127,8 +128,9 @@ func (q *QueryRuleSet) WithRule(rule rules.Rule[url.Values]) *QueryRuleSet {
 }
 
 // Apply implements rules.RuleSet[url.Values].
-func (q *QueryRuleSet) Apply(ctx context.Context, input, output any) errors.ValidationError {
-	return ToJSONAPIErrors(q.inner.Apply(ctx, input, output), SourceParameter)
+func (q *QueryRuleSet) Apply(ctx context.Context, input any) (url.Values, errors.ValidationError) {
+	out, err := q.inner.Apply(ctx, input)
+	return out, ToJSONAPIErrors(err, SourceParameter)
 }
 
 // Evaluate implements rules.RuleSet[url.Values].
@@ -173,9 +175,7 @@ var fieldsRuleSet = rules.Interface[ValueList]().WithCast(func(ctx context.Conte
 		return nil, errors.Errorf(errors.CodeForbidden, ctx, "Fields forbidden on DELETE", "Fields are not allowed on DELETE requests")
 	}
 
-	var strs []string
-	verrs := stringQueryValueRuleSet.Apply(ctx, value, &strs)
-
+	strs, verrs := stringQueryValueRuleSet.Apply(ctx, value)
 	if verrs != nil {
 		return nil, verrs
 	}
@@ -197,9 +197,7 @@ var sortRuleSet = rules.Interface[[]SortParam]().WithCast(func(ctx context.Conte
 		return nil, errors.Errorf(errors.CodeForbidden, ctx, "Sort forbidden", "Sort is only allowed on index GET requests")
 	}
 
-	var strs []string
-	verrs := stringQueryValueRuleSet.Apply(ctx, value, &strs)
-
+	strs, verrs := stringQueryValueRuleSet.Apply(ctx, value)
 	if verrs != nil {
 		return nil, verrs
 	}
@@ -238,15 +236,13 @@ func jsonAPIQueryRule(ctx context.Context, values url.Values) errors.ValidationE
 	for key, v := range values {
 		paramCtx := rulecontext.WithPathString(ctx, "query["+key+"]")
 		if fieldKeyRule.Evaluate(ctx, key) == nil {
-			var fl ValueList
-			if errs := fieldsRuleSet.Apply(paramCtx, v, &fl); errs != nil {
+			if _, errs := fieldsRuleSet.Apply(paramCtx, v); errs != nil {
 				allErrors = append(allErrors, errors.Unwrap(errs)...)
 			}
 			continue
 		}
 		if filterKeyRule.Evaluate(ctx, key) == nil {
-			var sl []string
-			if errs := filterRuleSet.Apply(paramCtx, v, &sl); errs != nil {
+			if _, errs := filterRuleSet.Apply(paramCtx, v); errs != nil {
 				allErrors = append(allErrors, errors.Unwrap(errs)...)
 			}
 			continue
@@ -268,11 +264,11 @@ type queryParamAdapter struct {
 }
 
 // Apply converts a single string value to []string and delegates to the inner rule set.
-func (a *queryParamAdapter) Apply(ctx context.Context, value, output any) errors.ValidationError {
+func (a *queryParamAdapter) Apply(ctx context.Context, value any) (any, errors.ValidationError) {
 	if s, ok := value.(string); ok {
 		value = []string{s}
 	}
-	return a.inner.Apply(ctx, value, output)
+	return a.inner.Apply(ctx, value)
 }
 
 // Evaluate converts a single string value to []string and delegates to the inner rule set.
