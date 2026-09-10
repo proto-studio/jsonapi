@@ -350,6 +350,68 @@ func TestQueryStringFilter_WithId_Forbidden(t *testing.T) {
 	}
 }
 
+func queryParamErrors(t *testing.T, verrs errors.ValidationError) []jsonapi.Error {
+	t.Helper()
+	return jsonapi.ErrorsFromValidationError(verrs, jsonapi.SourceParameter)
+}
+
+func requireParamError(t *testing.T, list []jsonapi.Error, parameter string) {
+	t.Helper()
+	for _, e := range list {
+		if e.Source != nil && e.Source.Parameter == parameter {
+			return
+		}
+	}
+	t.Fatalf("missing error for parameter %q in %+v", parameter, list)
+}
+
+// Requirements:
+// - filter[*] on a member GET is rejected once.
+// - WithParam / WithParamUnsafe stack additional param rules without re-running
+//   the existing whole-query rule (the same filter error must not be duplicated).
+func TestQueryStringBaseRuleSet_FilterOnMemberGet_WithParamDoesNotDuplicate(t *testing.T) {
+	ctx := jsonapi.WithId(jsonapi.WithMethod(context.Background(), "GET"), "K7zPsVDfP")
+	parsed, err := url.ParseQuery("filter[tenant]=GimsxMicP&include=tenant,permissions")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertOnlyFilter := func(t *testing.T, label string, verrs errors.ValidationError) {
+		t.Helper()
+		list := queryParamErrors(t, verrs)
+		if n := len(list); n != 1 {
+			t.Fatalf("%s: got %d errors, want 1: %v", label, n, verrs)
+		}
+		if list[0].Source == nil || list[0].Source.Parameter != "filter[tenant]" {
+			t.Fatalf("%s: want source.parameter=filter[tenant], got %+v", label, list[0].Source)
+		}
+		if list[0].Code != string(errors.CodeForbidden) {
+			t.Fatalf("%s: code=%q, want %s", label, list[0].Code, errors.CodeForbidden)
+		}
+	}
+
+	assertOnlyFilter(t, "base", jsonapi.QueryStringBaseRuleSet.Evaluate(ctx, parsed))
+
+	// Same fork protoauth-core uses: replace include, then add fields[roles].
+	forked := jsonapi.QueryStringBaseRuleSet.
+		WithParam("include", rules.String().Any()).
+		WithParamUnsafe("fields[roles]", rules.String().Any())
+	assertOnlyFilter(t, "after WithParam stack", forked.Evaluate(ctx, parsed))
+
+	t.Run("distinct params still stack", func(t *testing.T) {
+		withReserved, err := url.ParseQuery("filter[tenant]=GimsxMicP&include=tenant,permissions&unknownparam=x")
+		if err != nil {
+			t.Fatal(err)
+		}
+		list := queryParamErrors(t, forked.Evaluate(ctx, withReserved))
+		if n := len(list); n != 2 {
+			t.Fatalf("got %d errors, want 2 distinct (filter + reserved param), not copies of the same rule: %v", n, list)
+		}
+		requireParamError(t, list, "filter[tenant]")
+		requireParamError(t, list, "unknownparam")
+	})
+}
+
 func TestQueryStringFilter_NonGET_Forbidden(t *testing.T) {
 	qs := `filter[status]=active`
 	parsed, err := url.ParseQuery(qs)
