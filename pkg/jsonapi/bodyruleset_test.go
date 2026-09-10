@@ -26,6 +26,7 @@ func TestSingleDatum(t *testing.T) {
 
 	// Protovalidate test helpers: RuleSet implements WithRequired/Required
 	testhelpers.MustImplementWithRequired(t, ruleSet)
+	testhelpers.MustImplementWithNil(t, ruleSet)
 
 	ctx := context.Background()
 
@@ -250,6 +251,14 @@ func TestSingleRuleSet_WithRequired(t *testing.T) {
 	if anotherRuleSet != newRuleSet {
 		t.Error("Expected WithRequired to return same instance when already required")
 	}
+
+	withNil := ruleSet.WithNil()
+	if withNil == ruleSet {
+		t.Error("Expected WithNil to return a new instance")
+	}
+	if withNil.WithNil() != withNil {
+		t.Error("Expected WithNil to return same instance when already allowing nil")
+	}
 }
 
 func TestSingleRuleSet_Required(t *testing.T) {
@@ -376,6 +385,14 @@ func TestSingleRuleSet_WithMetaWithDocumentMetaWithNil(t *testing.T) {
 	if errs != nil {
 		t.Fatalf("Apply: %s", errs)
 	}
+	_, errs = rs.Apply(ctx, nil)
+	if errs != nil {
+		t.Fatalf("Apply with nil after WithNil: %s", errs)
+	}
+	_, errs = rs.Any().Apply(ctx, nil)
+	if errs != nil {
+		t.Fatalf("Apply via Any with nil after WithNil: %s", errs)
+	}
 }
 
 func TestSingleRuleSet_ErrorConfigMethodsIndependently(t *testing.T) {
@@ -421,5 +438,30 @@ func TestSingleRuleSet_ApplyMapInput(t *testing.T) {
 	}
 	if out.Data.ID != "1" {
 		t.Errorf("expected id 1, got %q", out.Data.ID)
+	}
+}
+
+func TestSingleRuleSet_ApplyNullData(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+	attrs := rules.Struct[testDatum]().WithKey("Name", rules.String().Any())
+	rs := jsonapi.NewSingleRuleSet[testDatum]("tests", attrs).WithUnknownDocumentMeta()
+	ctx := context.Background()
+
+	out, errs := rs.Apply(ctx, `{"data":null,"meta":{"copyright":"x"}}`)
+	if errs != nil {
+		t.Fatalf("Apply with data:null: %s", errs)
+	}
+	if out.Data.ID != "" || out.Data.Type != "" {
+		t.Errorf("expected zero primary data for data:null, got %+v", out.Data)
+	}
+
+	out, errs = rs.Apply(ctx, map[string]any{"data": nil})
+	if errs != nil {
+		t.Fatalf("Apply with map data nil: %s", errs)
+	}
+	if out.Data.ID != "" {
+		t.Errorf("expected zero primary data, got %+v", out.Data)
 	}
 }

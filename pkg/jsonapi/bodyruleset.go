@@ -12,6 +12,7 @@ type SingleRuleSet[T any] struct {
 	datumRuleSet *DatumRuleSet[T]
 	metaRuleSet  *rules.ObjectRuleSet[map[string]any, string, any]
 	required     bool
+	allowNil     bool
 	errorConfig  *errors.ErrorConfig
 	rules.NoConflict[SingleDatumEnvelope[T]]
 }
@@ -31,6 +32,7 @@ func (ruleSet *SingleRuleSet[T]) clone() *SingleRuleSet[T] {
 		datumRuleSet: ruleSet.datumRuleSet,
 		metaRuleSet:  ruleSet.metaRuleSet,
 		required:     ruleSet.required,
+		allowNil:     ruleSet.allowNil,
 		errorConfig:  ruleSet.errorConfig,
 	}
 }
@@ -95,7 +97,11 @@ func (ruleSet *SingleRuleSet[T]) Required() bool {
 
 // WithNil allows nil input values to pass validation.
 func (ruleSet *SingleRuleSet[T]) WithNil() *SingleRuleSet[T] {
+	if ruleSet.allowNil {
+		return ruleSet
+	}
 	newRuleSet := ruleSet.clone()
+	newRuleSet.allowNil = true
 	return newRuleSet
 }
 
@@ -165,6 +171,12 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input any) (SingleDa
 	if ruleSet.errorConfig != nil {
 		ctx = errors.WithErrorConfig(ctx, ruleSet.errorConfig)
 	}
+	if input == nil {
+		if ruleSet.allowNil {
+			return zero, nil
+		}
+		return zero, ToJSONAPIErrors(errors.Error(errors.CodeNull, ctx), SourcePointer)
+	}
 
 	// ObjectRuleSet is capable of decoding raw JSON but in this case we want to decode the JSON
 	// ahead of time into a map so we can assign fields.
@@ -180,11 +192,12 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input any) (SingleDa
 	}
 
 	bodyValidator := rules.Struct[SingleDatumEnvelope[T]]()
-	// Allow data to be nil for meta-only documents - wrap to handle nil
+	// JSON:API allows primary data to be null. WrapAny rejects nil unless WithNil is set,
+	// so both the interface cast and the any wrapper must allow it.
 	dataRuleSet := rules.Interface[Datum[T]]().WithCast(func(ctx context.Context, value any) (Datum[T], errors.ValidationError) {
 		return applyDatum(ctx, ruleSet.datumRuleSet, value)
-	})
-	bodyValidator = bodyValidator.WithKey("data", dataRuleSet.Any())
+	}).WithNil()
+	bodyValidator = bodyValidator.WithKey("data", rules.WrapAny[Datum[T]](dataRuleSet).WithNil())
 	bodyValidator = bodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
 	bodyValidator = bodyValidator.WithKey("links", LinksRuleSet.Any())
 	bodyValidator = bodyValidator.WithKey("included", IncludedRuleSet.Any())
@@ -238,7 +251,11 @@ func (ruleSet *SingleRuleSet[T]) Evaluate(ctx context.Context, value SingleDatum
 
 // Any returns the rule set as rules.RuleSet[any] for use with generic validators.
 func (ruleSet *SingleRuleSet[T]) Any() rules.RuleSet[any] {
-	return rules.WrapAny[SingleDatumEnvelope[T]](ruleSet)
+	wrapped := rules.WrapAny[SingleDatumEnvelope[T]](ruleSet)
+	if ruleSet.allowNil {
+		wrapped = wrapped.WithNil()
+	}
+	return wrapped
 }
 
 // String returns a stable name for the rule set for error messages and debugging.

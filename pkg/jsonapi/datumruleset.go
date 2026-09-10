@@ -16,6 +16,7 @@ type DatumRuleSet[T any] struct {
 	linksRuleSet         *rules.ObjectRuleSet[map[string]Link, string, Link]
 	metaRuleSet          *rules.ObjectRuleSet[map[string]any, string, any]
 	required             bool
+	allowNil             bool
 	errorConfig          *errors.ErrorConfig
 	rules.NoConflict[Datum[T]]
 }
@@ -42,6 +43,7 @@ func (ruleSet *DatumRuleSet[T]) clone() *DatumRuleSet[T] {
 		attributesRuleSet:    ruleSet.attributesRuleSet,
 		linksRuleSet:         ruleSet.linksRuleSet,
 		required:             ruleSet.required,
+		allowNil:             ruleSet.allowNil,
 		metaRuleSet:          ruleSet.metaRuleSet,
 		errorConfig:          ruleSet.errorConfig,
 	}
@@ -93,9 +95,11 @@ func (ruleSet *DatumRuleSet[T]) Required() bool {
 
 // WithNil allows nil input values to pass validation.
 func (ruleSet *DatumRuleSet[T]) WithNil() *DatumRuleSet[T] {
+	if ruleSet.allowNil {
+		return ruleSet
+	}
 	newRuleSet := ruleSet.clone()
-	// Note: DatumRuleSet itself doesn't directly handle nil, but we can mark it as allowing nil
-	// The actual nil handling is done by the struct validator
+	newRuleSet.allowNil = true
 	return newRuleSet
 }
 
@@ -165,6 +169,12 @@ func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input any) (Datum[T],
 	if ruleSet.errorConfig != nil {
 		ctx = errors.WithErrorConfig(ctx, ruleSet.errorConfig)
 	}
+	if input == nil {
+		if ruleSet.allowNil {
+			return zero, nil
+		}
+		return zero, errors.Error(errors.CodeNull, ctx)
+	}
 
 	datumValidator := rules.Struct[Datum[T]]().WithJson()
 	datumValidator = datumValidator.WithKey("id", ruleSet.idRuleSet.Any())
@@ -198,7 +208,11 @@ func (ruleSet *DatumRuleSet[T]) Evaluate(ctx context.Context, value Datum[T]) er
 
 // Any returns the rule set as rules.RuleSet[any] for use with generic validators.
 func (ruleSet *DatumRuleSet[T]) Any() rules.RuleSet[any] {
-	return rules.WrapAny[Datum[T]](ruleSet)
+	wrapped := rules.WrapAny[Datum[T]](ruleSet)
+	if ruleSet.allowNil {
+		wrapped = wrapped.WithNil()
+	}
+	return wrapped
 }
 
 // String returns a stable name for the rule set for error messages and debugging.

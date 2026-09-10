@@ -59,6 +59,15 @@ func TestSpecV1_1_DocumentStructure(t *testing.T) {
 	if errs != nil {
 		t.Errorf("Meta-only document (spec allows this): %s", errs)
 	}
+
+	// Primary data MAY be null (JSON:API document-structure / resource-linkage).
+	docWithNullData := `{"data":null,"meta":{"copyright":"Copyright 2015 Example Corp."}}`
+	out, errs := ruleSet.Apply(ctx, docWithNullData)
+	if errs != nil {
+		t.Errorf("Document with data:null should be valid: %s", errs)
+	} else if out.Data.ID != "" || out.Data.Type != "" {
+		t.Errorf("expected empty primary data for data:null, got %+v", out.Data)
+	}
 }
 
 // TestSpecV1_1_ResourceObjects tests Section 5.2: Resource Objects

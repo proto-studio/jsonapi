@@ -28,6 +28,7 @@ func TestSingleDatumTyped(t *testing.T) {
 
 	// Protovalidate test helpers: RuleSet implements WithRequired/Required
 	testhelpers.MustImplementWithRequired(t, ruleSet)
+	testhelpers.MustImplementWithNil(t, ruleSet)
 
 	ctx := context.Background()
 
@@ -292,6 +293,14 @@ func TestDatumRuleSet_WithRequired(t *testing.T) {
 	if anotherRuleSet != newRuleSet {
 		t.Error("Expected WithRequired to return same instance when already required")
 	}
+
+	withNil := ruleSet.WithNil()
+	if withNil == ruleSet {
+		t.Error("Expected WithNil to return a new instance")
+	}
+	if withNil.WithNil() != withNil {
+		t.Error("Expected WithNil to return same instance when already allowing nil")
+	}
 }
 
 func TestDatumRuleSet_Evaluate(t *testing.T) {
@@ -361,6 +370,10 @@ func TestDatumRuleSet_WithMetaWithNilAndErrorConfig(t *testing.T) {
 	_, errs := anyRS.Apply(ctx, `{"id":"1","type":"tests","attributes":{"Name":"y"}}`)
 	if errs != nil {
 		t.Fatalf("Apply via Any: %s", errs)
+	}
+	_, errs = anyRS.Apply(ctx, nil)
+	if errs != nil {
+		t.Fatalf("Apply via Any with nil after WithNil: %s", errs)
 	}
 }
 
