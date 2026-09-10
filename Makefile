@@ -1,6 +1,6 @@
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
-.PHONY: test test-docker bench coverage coverage-html reportcard generated
+.PHONY: test test-docker bench coverage coverage-html generated
 
 test:
 	go test ./...
@@ -14,6 +14,3 @@ coverage:
 
 coverage-html: coverage
 	go tool cover -html=coverage.out
-
-reportcard:
-	goreportcard-cli -v
