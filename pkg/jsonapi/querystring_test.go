@@ -366,9 +366,9 @@ func requireParamError(t *testing.T, list []jsonapi.Error, parameter string) {
 }
 
 // Requirements:
-// - filter[*] on a member GET is rejected once.
-// - WithParam / WithParamUnsafe stack additional param rules without re-running
-//   the existing whole-query rule (the same filter error must not be duplicated).
+//   - filter[*] on a member GET is rejected once.
+//   - WithParam / WithParamUnsafe stack additional param rules without re-running
+//     the existing whole-query rule (the same filter error must not be duplicated).
 func TestQueryStringBaseRuleSet_FilterOnMemberGet_WithParamDoesNotDuplicate(t *testing.T) {
 	ctx := jsonapi.WithId(jsonapi.WithMethod(context.Background(), "GET"), "K7zPsVDfP")
 	parsed, err := url.ParseQuery("filter[tenant]=GimsxMicP&include=tenant,permissions")
@@ -459,6 +459,32 @@ func TestQueryStringPageSize_WithId_Forbidden(t *testing.T) {
 	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(ctx, parsed)
 	if verrs == nil {
 		t.Fatalf("Expected validation error for page[size] with ID, got nil")
+	}
+}
+
+func TestQueryStringFields_MultipleValues(t *testing.T) {
+	parsed := url.Values{}
+	parsed.Add("fields[articles]", "abc")
+	parsed.Add("fields[articles]", "xyz")
+
+	_, verrs := jsonapi.QueryStringBaseRuleSet.Apply(context.Background(), parsed)
+	if verrs == nil {
+		t.Fatal("expected error when fields[articles] has more than one value")
+	}
+}
+
+func TestQueryStringSort_EmptyItems(t *testing.T) {
+	parsed, err := url.ParseQuery("sort=abc,,xyz")
+	if err != nil {
+		t.Fatalf("parse: %s", err)
+	}
+
+	vals, verrs := jsonapi.QueryStringBaseRuleSet.Apply(context.Background(), parsed)
+	if verrs != nil {
+		t.Fatalf("expected empty sort items to be skipped, got: %s", verrs)
+	}
+	if vals.Get("sort") != "abc,,xyz" {
+		t.Errorf("expected sort=abc,,xyz, got %q", vals.Get("sort"))
 	}
 }
 

@@ -182,11 +182,7 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input any) (SingleDa
 	bodyValidator := rules.Struct[SingleDatumEnvelope[T]]()
 	// Allow data to be nil for meta-only documents - wrap to handle nil
 	dataRuleSet := rules.Interface[Datum[T]]().WithCast(func(ctx context.Context, value any) (Datum[T], errors.ValidationError) {
-		if value == nil {
-			// Return zero value for nil - meta-only documents are valid
-			return Datum[T]{}, nil
-		}
-		return ruleSet.datumRuleSet.Apply(ctx, value)
+		return applyDatum(ctx, ruleSet.datumRuleSet, value)
 	})
 	bodyValidator = bodyValidator.WithKey("data", dataRuleSet.Any())
 	bodyValidator = bodyValidator.WithKey("meta", ruleSet.metaRuleSet.Any())
@@ -222,10 +218,22 @@ func (ruleSet *SingleRuleSet[T]) Apply(ctx context.Context, input any) (SingleDa
 	return envelope, nil
 }
 
+// applyDatum converts a raw value into Datum[T], treating nil as a zero value for meta-only documents.
+func applyDatum[T any](ctx context.Context, datumRuleSet *DatumRuleSet[T], value any) (Datum[T], errors.ValidationError) {
+	if value == nil {
+		return Datum[T]{}, nil
+	}
+	return datumRuleSet.Apply(ctx, value)
+}
+
 // Evaluate validates a SingleDatumEnvelope value and returns any validation errors.
 func (ruleSet *SingleRuleSet[T]) Evaluate(ctx context.Context, value SingleDatumEnvelope[T]) errors.ValidationError {
-	_, err := ruleSet.Apply(ctx, value)
-	return err
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return ToJSONAPIErrors(errors.Errorf(errors.CodeEncoding, ctx, "Invalid JSON encoding", "Body must be Json encoded"), SourcePointer)
+	}
+	_, verr := ruleSet.Apply(ctx, string(encoded))
+	return verr
 }
 
 // Any returns the rule set as rules.RuleSet[any] for use with generic validators.

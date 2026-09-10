@@ -284,12 +284,24 @@ func TestSingleRuleSet_Evaluate(t *testing.T) {
 		WithKey("Name", rules.String().WithMinLen(3).Any())
 
 	ruleSet := jsonapi.NewSingleRuleSet[testDatum]("tests", attributesRuleSet)
+	ctx := context.Background()
 
-	// Evaluate method exists and implements the RuleSet interface
-	// Note: Evaluate is provided for interface compatibility but may have
-	// limitations when used directly with struct values. Use Apply() for
-	// full functionality with JSON strings or maps.
-	_ = ruleSet.Evaluate
+	envelope := jsonapi.SingleDatumEnvelope[testDatum]{
+		Data: jsonapi.Datum[testDatum]{
+			ID:         "abc",
+			Type:       "tests",
+			Attributes: testDatum{Name: "My Test"},
+		},
+	}
+	if errs := ruleSet.Evaluate(ctx, envelope); errs != nil {
+		t.Errorf("Evaluate valid envelope: %s", errs)
+	}
+
+	bad := envelope
+	bad.Meta = map[string]any{"ch": make(chan int)}
+	if errs := ruleSet.Evaluate(ctx, bad); errs == nil {
+		t.Error("expected Evaluate to fail when the envelope cannot be marshaled")
+	}
 }
 
 func TestSingleRuleSet_Any(t *testing.T) {
@@ -363,5 +375,51 @@ func TestSingleRuleSet_WithMetaWithDocumentMetaWithNil(t *testing.T) {
 	_, errs := rs.Apply(ctx, body)
 	if errs != nil {
 		t.Fatalf("Apply: %s", errs)
+	}
+}
+
+func TestSingleRuleSet_ErrorConfigMethodsIndependently(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+	attrs := rules.Struct[testDatum]().WithKey("Name", rules.String().Any())
+	base := jsonapi.NewSingleRuleSet[testDatum]("tests", attrs)
+	ctx := context.Background()
+	body := `{"data":{"id":"1","type":"tests","attributes":{"Name":"Hi"}}}`
+
+	for _, rs := range []*jsonapi.SingleRuleSet[testDatum]{
+		base.WithDocsURI("https://docs.example.com"),
+		base.WithTraceURI("https://trace.example.com"),
+		base.WithErrorCode(errors.CodeRequired),
+		base.WithErrorMeta("k", "v"),
+		base.WithErrorCallback(func(ctx context.Context, err errors.ValidationError) errors.ValidationError { return err }),
+	} {
+		if _, errs := rs.Apply(ctx, body); errs != nil {
+			t.Fatalf("Apply: %s", errs)
+		}
+	}
+}
+
+func TestSingleRuleSet_ApplyMapInput(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+	attrs := rules.Struct[testDatum]().WithKey("Name", rules.String().Any())
+	rs := jsonapi.NewSingleRuleSet[testDatum]("tests", attrs)
+	ctx := context.Background()
+
+	input := map[string]any{
+		"data": map[string]any{
+			"id":         "1",
+			"type":       "tests",
+			"attributes": map[string]any{"Name": "Hi"},
+		},
+	}
+	out, errs := rs.Apply(ctx, input)
+	if errs != nil {
+		t.Fatalf("Apply with map: %s", errs)
+	}
+	if out.Data.ID != "1" {
+		t.Errorf("expected id 1, got %q", out.Data.ID)
 	}
 }

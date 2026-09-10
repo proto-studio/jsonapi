@@ -108,3 +108,12 @@ func TestNilResourceLinkage_UnmarshalJSON(t *testing.T) {
 		t.Errorf("Unexpected error unmarshaling other JSON: %v", err)
 	}
 }
+
+func TestRelationshipRuleSet_InvalidInput(t *testing.T) {
+	_, errs := jsonapi.RelationshipRuleSet.Apply(context.Background(), map[string]any{
+		"links": 123,
+	})
+	if errs == nil {
+		t.Fatal("expected error for invalid relationship links")
+	}
+}

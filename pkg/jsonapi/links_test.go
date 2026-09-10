@@ -193,3 +193,10 @@ func TestLinks_UnmarshalJSON_EmptyMap(t *testing.T) {
 		t.Errorf("Expected empty links map, got %d links", len(links))
 	}
 }
+
+func TestLinks_UnmarshalJSON_InvalidJSON(t *testing.T) {
+	var links jsonapi.Links
+	if err := json.Unmarshal([]byte(`["not","an","object"]`), &links); err == nil {
+		t.Fatal("expected error unmarshaling links from a JSON array")
+	}
+}

@@ -2,9 +2,12 @@ package jsonapi
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"testing"
 
 	"proto.zip/studio/validate/pkg/errors"
+	"proto.zip/studio/validate/pkg/rules"
 )
 
 // TestDoNotExtend_ResourceLinkage ensures doNotExtend is callable (for coverage).
@@ -156,6 +159,10 @@ func TestJSONAPIErrorWrapper_PathSource(t *testing.T) {
 	if w.Path() != "sort" {
 		t.Errorf("Path() with Parameter: got %q", w.Path())
 	}
+	e.Source = &Source{Pointer: "/data/attributes/name"}
+	if w.Path() != "/data/attributes/name" {
+		t.Errorf("Path() with Pointer: got %q", w.Path())
+	}
 }
 
 // TestJSONAPIErrorWrapper_DocsURITraceURIMeta covers Links and Meta.
@@ -173,5 +180,197 @@ func TestJSONAPIErrorWrapper_DocsURITraceURIMeta(t *testing.T) {
 	}
 	if m := w.Meta(); len(m) != 1 || m["key"] != "value" {
 		t.Errorf("Meta: got %v", m)
+	}
+}
+
+func TestErrorsFromValidationError_NilAndNonJSONAPI(t *testing.T) {
+	if got := ErrorsFromValidationError(nil, SourcePointer); got != nil {
+		t.Errorf("nil error: got %v, want nil", got)
+	}
+
+	ctx := context.Background()
+	ve := errors.Errorf(errors.CodeRequired, ctx, "required", "field is required")
+	list := ErrorsFromValidationError(ve, SourcePointer)
+	if len(list) != 1 {
+		t.Fatalf("plain ValidationError: got %d, want 1", len(list))
+	}
+	if list[0].Code != string(errors.CodeRequired) {
+		t.Errorf("code: got %q", list[0].Code)
+	}
+}
+
+type mixedUnwrapError struct {
+	ve    errors.ValidationError
+	inner []error
+}
+
+func (m mixedUnwrapError) Error() string                       { return m.ve.Error() }
+func (m mixedUnwrapError) Code() errors.ErrorCode              { return m.ve.Code() }
+func (m mixedUnwrapError) Path() string                        { return m.ve.Path() }
+func (m mixedUnwrapError) PathAs(errors.PathSerializer) string { return m.ve.Path() }
+func (m mixedUnwrapError) ShortError() string                  { return m.ve.ShortError() }
+func (m mixedUnwrapError) DocsURI() string                     { return m.ve.DocsURI() }
+func (m mixedUnwrapError) TraceURI() string                    { return m.ve.TraceURI() }
+func (m mixedUnwrapError) Meta() map[string]any                { return m.ve.Meta() }
+func (m mixedUnwrapError) Params() []any                       { return nil }
+func (m mixedUnwrapError) Internal() bool                      { return false }
+func (m mixedUnwrapError) Validation() bool                    { return true }
+func (m mixedUnwrapError) Permission() bool                    { return false }
+func (m mixedUnwrapError) Unwrap() []error                     { return m.inner }
+
+func TestErrorsFromValidationError_SkipsNonValidationError(t *testing.T) {
+	ctx := context.Background()
+	ve := errors.Errorf(errors.CodeRequired, ctx, "required", "field is required")
+	holder := mixedUnwrapError{
+		ve:    ve,
+		inner: []error{fmt.Errorf("plain"), ve},
+	}
+	list := ErrorsFromValidationError(holder, SourcePointer)
+	if len(list) != 1 {
+		t.Fatalf("got %d errors, want 1 (plain error skipped)", len(list))
+	}
+}
+
+func TestLinkCast_NilMarshalAndInvalidObject(t *testing.T) {
+	ctx := context.Background()
+
+	out, errs := linkCast(ctx, nil)
+	if errs != nil {
+		t.Fatalf("nil link: %s", errs)
+	}
+	if _, ok := out.(NilLink); !ok {
+		t.Errorf("expected NilLink, got %T", out)
+	}
+
+	_, errs = LinkRuleSet.Apply(ctx, map[string]any{"href": make(chan int)})
+	if errs == nil {
+		t.Fatal("expected marshal error for channel in link object")
+	}
+
+	_, errs = LinkRuleSet.Apply(ctx, map[string]any{"href": []any{"not", "a", "string"}})
+	if errs == nil {
+		t.Fatal("expected unmarshal error for non-string href")
+	}
+}
+
+func TestResourceLinkageCast_InvalidJSON(t *testing.T) {
+	_, errs := ResourceLinkageRuleSet.Apply(context.Background(), "{not json")
+	if errs == nil {
+		t.Fatal("expected error for invalid JSON string")
+	}
+}
+
+func TestRelationshipRuleSet_ApplyErrorAndNilDataCast(t *testing.T) {
+	ctx := context.Background()
+	_, errs := RelationshipRuleSet.Apply(ctx, map[string]any{"links": 123})
+	if errs == nil {
+		t.Fatal("expected error for invalid links value")
+	}
+
+	out, errs := relationshipDataCast(ctx, nil)
+	if errs != nil {
+		t.Fatalf("nil relationship data: %s", errs)
+	}
+	if _, ok := out.(NilResourceLinkage); !ok {
+		t.Errorf("expected NilResourceLinkage, got %T", out)
+	}
+}
+
+func TestDatumUnmarshalJSON_DecodeErrors(t *testing.T) {
+	var d Datum[map[string]any]
+	if err := d.UnmarshalJSON([]byte("not-json")); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+
+	orig := jsonUnmarshal
+	t.Cleanup(func() { jsonUnmarshal = orig })
+
+	t.Run("at-member", func(t *testing.T) {
+		jsonUnmarshal = func(data []byte, v any) error {
+			if _, ok := v.(*any); ok {
+				return fmt.Errorf("forced at-member decode error")
+			}
+			return orig(data, v)
+		}
+		var datum Datum[map[string]any]
+		if err := datum.UnmarshalJSON([]byte(`{"id":"1","type":"t","@foo":"bar"}`)); err == nil {
+			t.Fatal("expected forced at-member decode error")
+		}
+	})
+
+	t.Run("extension-member", func(t *testing.T) {
+		jsonUnmarshal = func(data []byte, v any) error {
+			if _, ok := v.(*any); ok {
+				return fmt.Errorf("forced extension decode error")
+			}
+			return orig(data, v)
+		}
+		var datum Datum[map[string]any]
+		if err := datum.UnmarshalJSON([]byte(`{"id":"1","type":"t","ext:foo":"bar"}`)); err == nil {
+			t.Fatal("expected forced extension decode error")
+		}
+	})
+}
+
+func TestApplyDatum_Nil(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+	attrs := rules.Struct[testDatum]().WithKey("Name", rules.String().Any())
+	out, errs := applyDatum(context.Background(), NewDatumRuleSet[testDatum]("tests", attrs), nil)
+	if errs != nil {
+		t.Fatalf("nil datum: %s", errs)
+	}
+	if out.Type != "" {
+		t.Errorf("expected zero datum, got %+v", out)
+	}
+}
+
+func TestSortRuleSet_MultipleValues(t *testing.T) {
+	_, errs := sortRuleSet.Apply(context.Background(), []string{"a", "b"})
+	if errs == nil {
+		t.Fatal("expected error when sort has more than one value")
+	}
+}
+
+func TestHeaderRuleSet_NilHeaderRulesAndInvalidContentType(t *testing.T) {
+	ctx := context.Background()
+
+	rs := (&HeaderRuleSet{}).WithHeader("X-Request-Id", rules.String().Any())
+	h := http.Header{}
+	h.Set("Content-Type", MediaTypeJSONAPI)
+	h.Set("X-Request-Id", "abc")
+	if _, err := rs.Apply(ctx, h); err != nil {
+		t.Fatalf("WithHeader on empty HeaderRuleSet: %v", err)
+	}
+
+	cloned := Headers().WithHeader("X-Request-Id", rules.String().WithMinLen(1).Any()).WithExt(rules.String().Any())
+	h.Set("X-Request-Id", "ok")
+	if _, err := cloned.Apply(ctx, h); err != nil {
+		t.Fatalf("clone with header rules: %v", err)
+	}
+
+	withNilRule := &HeaderRuleSet{
+		contentRequired: false,
+		headerRules:     map[string]rules.RuleSet[any]{"X-Ignored": nil},
+	}
+	if err := withNilRule.Evaluate(ctx, http.Header{}); err != nil {
+		t.Fatalf("nil header rule should be skipped: %v", err)
+	}
+
+	invalid := http.Header{}
+	invalid.Set("Content-Type", `application/vnd.api+json; charset="`)
+	if _, err := Headers().Apply(ctx, invalid); err == nil {
+		t.Fatal("expected error for invalid Content-Type parameters")
+	}
+
+	empty := httpHeaderToHeader(http.Header{})
+	if empty.Version != Version_1_1 {
+		t.Errorf("empty headers version: got %q", empty.Version)
+	}
+
+	parsed := httpHeaderToHeader(invalid)
+	if parsed.Version != Version_1_1 {
+		t.Errorf("invalid Content-Type version: got %q", parsed.Version)
 	}
 }

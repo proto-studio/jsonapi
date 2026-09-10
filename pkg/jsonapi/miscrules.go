@@ -145,13 +145,16 @@ func (r *relationshipRuleSetImpl) Required() bool {
 	return false
 }
 
-// Create a rule set for Relationship data that handles nil properly
-var relationshipDataRuleSet = rules.Interface[ResourceLinkage]().WithCast(func(ctx context.Context, value any) (ResourceLinkage, errors.ValidationError) {
+// relationshipDataCast converts a raw relationship data value into ResourceLinkage.
+func relationshipDataCast(ctx context.Context, value any) (ResourceLinkage, errors.ValidationError) {
 	if value == nil {
 		return NilResourceLinkage{}, nil
 	}
 	return ResourceLinkageRuleSet.Apply(ctx, value)
-})
+}
+
+// Create a rule set for Relationship data that handles nil properly
+var relationshipDataRuleSet = rules.Interface[ResourceLinkage]().WithCast(relationshipDataCast)
 
 var RelationshipRuleSet rules.RuleSet[Relationship] = &relationshipRuleSetImpl{}
 

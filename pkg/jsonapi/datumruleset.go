@@ -2,6 +2,7 @@ package jsonapi
 
 import (
 	"context"
+	"encoding/json"
 
 	"proto.zip/studio/validate/pkg/errors"
 	"proto.zip/studio/validate/pkg/rules"
@@ -187,8 +188,12 @@ func (ruleSet *DatumRuleSet[T]) Apply(ctx context.Context, input any) (Datum[T],
 
 // Evaluate validates a Datum value and returns any validation errors.
 func (ruleSet *DatumRuleSet[T]) Evaluate(ctx context.Context, value Datum[T]) errors.ValidationError {
-	_, err := ruleSet.Apply(ctx, value)
-	return err
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return errors.Errorf(errors.CodeEncoding, ctx, "Invalid JSON encoding", "Resource must be Json encoded")
+	}
+	_, verr := ruleSet.Apply(ctx, string(encoded))
+	return verr
 }
 
 // Any returns the rule set as rules.RuleSet[any] for use with generic validators.

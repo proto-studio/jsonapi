@@ -233,6 +233,54 @@ func TestMarshalJSON(t *testing.T) {
 				"attributes":{"name":"John Doe"}
 			}`,
 		},
+		{
+			name: "Datum with lid, relationships, and at-members when Fields is nil",
+			datum: jsonapi.Datum[ExampleAttributes]{
+				ID:         "132",
+				Lid:        "local-1",
+				Type:       "example",
+				Attributes: exampleAttr,
+				Relationships: map[string]jsonapi.Relationship{
+					"author": {
+						Data: jsonapi.ResourceIdentifierLinkage{
+							ID:   "456",
+							Type: "users",
+						},
+					},
+				},
+				AtMembers: map[string]any{
+					"@context": "https://example.com/context",
+				},
+			},
+			expected: `{
+				"id":"132",
+				"lid":"local-1",
+				"type":"example",
+				"attributes":{"name":"John Doe","email":"john.doe@example.com","age":30},
+				"relationships":{"author":{"data":{"id":"456","type":"users"}}},
+				"@context":"https://example.com/context"
+			}`,
+		},
+		{
+			name: "Datum with untagged struct attribute field",
+			datum: jsonapi.Datum[struct {
+				Name     string `json:"name"`
+				Untagged string
+			}]{
+				ID:   "133",
+				Type: "example",
+				Attributes: struct {
+					Name     string `json:"name"`
+					Untagged string
+				}{Name: "Pat", Untagged: "visible"},
+				Fields: jsonapi.NewFieldList("name", "Untagged"),
+			},
+			expected: `{
+				"id":"133",
+				"type":"example",
+				"attributes":{"name":"Pat","Untagged":"visible"}
+			}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -337,4 +385,46 @@ func TestDatumUnmarshalJSON(t *testing.T) {
 	if !reflect.DeepEqual(datum.ExtensionMembers, expectedExtensionMembers) {
 		t.Errorf("Expected ExtensionMembers to be %+v, got %+v", expectedExtensionMembers, datum.ExtensionMembers)
 	}
+}
+
+func TestDatumUnmarshalJSON_AtMembersAndErrors(t *testing.T) {
+	t.Run("at-members", func(t *testing.T) {
+		jsonData := `{
+			"id": "1",
+			"type": "example",
+			"@context": "https://example.com/context",
+			"@version": 1
+		}`
+		var datum jsonapi.Datum[map[string]any]
+		if err := json.Unmarshal([]byte(jsonData), &datum); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if datum.AtMembers["@context"] != "https://example.com/context" {
+			t.Errorf("AtMembers[@context]: got %v", datum.AtMembers["@context"])
+		}
+		if datum.AtMembers["@version"] != float64(1) {
+			t.Errorf("AtMembers[@version]: got %v", datum.AtMembers["@version"])
+		}
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		var datum jsonapi.Datum[map[string]any]
+		if err := json.Unmarshal([]byte("not-json"), &datum); err == nil {
+			t.Fatal("expected error for invalid JSON")
+		}
+	})
+
+	t.Run("field type mismatch", func(t *testing.T) {
+		var datum jsonapi.Datum[map[string]any]
+		if err := json.Unmarshal([]byte(`{"id":{"nested":true},"type":"example"}`), &datum); err == nil {
+			t.Fatal("expected error when id is not a string")
+		}
+	})
+
+	t.Run("attributes not an object", func(t *testing.T) {
+		var datum jsonapi.Datum[string]
+		if err := json.Unmarshal([]byte(`{"id":"1","type":"example","attributes":"hello"}`), &datum); err == nil {
+			t.Fatal("expected error when attributes is not an object")
+		}
+	})
 }

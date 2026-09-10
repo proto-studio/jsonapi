@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+// jsonUnmarshal is json.Unmarshal, overridden in tests to exercise decode error paths.
+var jsonUnmarshal = json.Unmarshal
+
 type Datum[T any] struct {
 	ID               string                  `json:"id,omitempty" validate:"id"`
 	Lid              string                  `json:"lid,omitempty" validate:"lid"`
@@ -109,7 +112,7 @@ func (d Datum[T]) MarshalJSON() ([]byte, error) {
 func (d *Datum[T]) UnmarshalJSON(data []byte) error {
 	// Unmarshal the data into a map of json.RawMessage
 	var rawData map[string]json.RawMessage
-	if err := json.Unmarshal(data, &rawData); err != nil {
+	if err := jsonUnmarshal(data, &rawData); err != nil {
 		return err
 	}
 
@@ -140,14 +143,14 @@ func (d *Datum[T]) UnmarshalJSON(data []byte) error {
 		if fieldValue, exists := structFields[key]; exists {
 			// Unmarshal the value into the corresponding field
 			if fieldValue.CanSet() {
-				if err := json.Unmarshal(value, fieldValue.Addr().Interface()); err != nil {
+				if err := jsonUnmarshal(value, fieldValue.Addr().Interface()); err != nil {
 					return err
 				}
 
 				// If the field is "attributes", capture the fields present in the attributes JSON
 				if key == "attributes" {
 					var attrMap map[string]json.RawMessage
-					if err := json.Unmarshal(value, &attrMap); err != nil {
+					if err := jsonUnmarshal(value, &attrMap); err != nil {
 						return err
 					}
 					for attrKey := range attrMap {
@@ -159,7 +162,7 @@ func (d *Datum[T]) UnmarshalJSON(data []byte) error {
 			// Handle @-members (names beginning with "@")
 			if strings.HasPrefix(key, "@") {
 				var rawValue any
-				if err := json.Unmarshal(value, &rawValue); err != nil {
+				if err := jsonUnmarshal(value, &rawValue); err != nil {
 					return err
 				}
 				if d.AtMembers == nil {
@@ -169,7 +172,7 @@ func (d *Datum[T]) UnmarshalJSON(data []byte) error {
 			} else if idx := strings.Index(key, ":"); idx > 0 {
 				// Handle ExtensionMembers if the key contains a ":" and it's not at the start
 				var rawValue any
-				if err := json.Unmarshal(value, &rawValue); err != nil {
+				if err := jsonUnmarshal(value, &rawValue); err != nil {
 					return err
 				}
 				if d.ExtensionMembers == nil {

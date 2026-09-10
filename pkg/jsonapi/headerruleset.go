@@ -44,10 +44,12 @@ func (h *HeaderRuleSet) clone() *HeaderRuleSet {
 		contentRequired: h.contentRequired,
 		extRuleSet:      h.extRuleSet,
 		profileRuleSet:  h.profileRuleSet,
-		headerRules:     make(map[string]rules.RuleSet[any]),
 	}
-	for k, v := range h.headerRules {
-		c.headerRules[k] = v
+	if h.headerRules != nil {
+		c.headerRules = make(map[string]rules.RuleSet[any], len(h.headerRules))
+		for k, v := range h.headerRules {
+			c.headerRules[k] = v
+		}
 	}
 	return c
 }

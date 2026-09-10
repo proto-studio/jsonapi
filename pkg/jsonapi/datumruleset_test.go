@@ -303,12 +303,22 @@ func TestDatumRuleSet_Evaluate(t *testing.T) {
 		WithKey("Name", rules.String().WithMinLen(3).Any())
 
 	ruleSet := jsonapi.NewDatumRuleSet[testDatum]("tests", attributesRuleSet)
+	ctx := context.Background()
 
-	// Evaluate method exists and implements the RuleSet interface
-	// Note: Evaluate is provided for interface compatibility but may have
-	// limitations when used directly with struct values. Use Apply() for
-	// full functionality with JSON strings or maps.
-	_ = ruleSet.Evaluate
+	value := jsonapi.Datum[testDatum]{
+		ID:         "abc",
+		Type:       "tests",
+		Attributes: testDatum{Name: "My Test"},
+	}
+	if errs := ruleSet.Evaluate(ctx, value); errs != nil {
+		t.Errorf("Evaluate valid datum: %s", errs)
+	}
+
+	bad := value
+	bad.Meta = map[string]any{"ch": make(chan int)}
+	if errs := ruleSet.Evaluate(ctx, bad); errs == nil {
+		t.Error("expected Evaluate to fail when the datum cannot be marshaled")
+	}
 }
 
 func TestDatumRuleSet_String(t *testing.T) {
@@ -351,5 +361,27 @@ func TestDatumRuleSet_WithMetaWithNilAndErrorConfig(t *testing.T) {
 	_, errs := anyRS.Apply(ctx, `{"id":"1","type":"tests","attributes":{"Name":"y"}}`)
 	if errs != nil {
 		t.Fatalf("Apply via Any: %s", errs)
+	}
+}
+
+func TestDatumRuleSet_ErrorConfigMethodsIndependently(t *testing.T) {
+	type testDatum struct {
+		Name string
+	}
+	attrs := rules.Struct[testDatum]().WithKey("Name", rules.String().Any())
+	base := jsonapi.NewDatumRuleSet[testDatum]("tests", attrs)
+	ctx := context.Background()
+	body := `{"id":"1","type":"tests","attributes":{"Name":"y"}}`
+
+	for _, rs := range []*jsonapi.DatumRuleSet[testDatum]{
+		base.WithDocsURI("https://docs.example.com"),
+		base.WithTraceURI("https://trace.example.com"),
+		base.WithErrorCode(errors.CodeRequired),
+		base.WithErrorMeta("k", "v"),
+		base.WithErrorCallback(func(ctx context.Context, err errors.ValidationError) errors.ValidationError { return err }),
+	} {
+		if _, errs := rs.Apply(ctx, body); errs != nil {
+			t.Fatalf("Apply: %s", errs)
+		}
 	}
 }
