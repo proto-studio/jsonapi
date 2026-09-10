@@ -219,3 +219,5 @@ func (ruleSet *DatumRuleSet[T]) Any() rules.RuleSet[any] {
 func (ruleSet *DatumRuleSet[T]) String() string {
 	return "DatumRuleSet"
 }
+
+var _ rules.RuleSet[Datum[any]] = (*DatumRuleSet[any])(nil)

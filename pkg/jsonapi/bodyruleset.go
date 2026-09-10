@@ -262,3 +262,5 @@ func (ruleSet *SingleRuleSet[T]) Any() rules.RuleSet[any] {
 func (ruleSet *SingleRuleSet[T]) String() string {
 	return "SingleRuleSet"
 }
+
+var _ rules.RuleSet[SingleDatumEnvelope[any]] = (*SingleRuleSet[any])(nil)

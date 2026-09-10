@@ -158,6 +158,8 @@ func (q *QueryRuleSet) Any() rules.RuleSet[any] {
 	return rules.WrapAny[url.Values](q)
 }
 
+var _ rules.RuleSet[url.Values] = (*QueryRuleSet)(nil)
+
 var stringQueryValueRuleSet = rules.Slice[string]().WithItemRuleSet(rules.String()).WithMaxLen(1)
 var intQueryValueRuleSet = rules.Slice[int]().WithItemRuleSet(rules.Int()).WithMaxLen(1)
 
@@ -290,6 +292,8 @@ func (a *queryParamAdapter) Replaces(r rules.Rule[any]) bool { return a.inner.Re
 
 // Any returns the adapter as rules.RuleSet[any] (the adapter itself).
 func (a *queryParamAdapter) Any() rules.RuleSet[any] { return a }
+
+var _ rules.RuleSet[any] = (*queryParamAdapter)(nil)
 
 // QueryStringBaseRuleSet is the default JSON:API query rule set. Use Apply to validate
 // and coerce input (string or url.Values) to url.Values.

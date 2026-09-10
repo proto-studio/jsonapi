@@ -160,3 +160,5 @@ func (a *AttributesRuleSet) Replaces(r rules.Rule[map[string]any]) bool {
 func (a *AttributesRuleSet) Any() rules.RuleSet[any] {
 	return a.inner.Any()
 }
+
+var _ rules.RuleSet[map[string]any] = (*AttributesRuleSet)(nil)
